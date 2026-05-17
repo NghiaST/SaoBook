@@ -1,0 +1,224 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  user
+  author
+  admin
+}
+
+enum TTSLanguage {
+  vi
+  en
+  zh
+}
+
+enum TTSVoice {
+  male
+  female
+}
+
+enum UITheme {
+  light
+  dark
+}
+
+// ─── User & Settings ──────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  email        String   @unique
+  name         String
+  avatarUrl    String?
+  bio          String?
+  passwordHash String
+  role         Role     @default(user)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  settings       UserSettings?
+  stories         Story[]
+  comments        Comment[]
+  reviews         Review[]
+  bookshelves     Bookshelf[]
+  readingHistories ReadingHistory[]
+  chapterReadLogs  ChapterReadLog[]
+  passwordResets   PasswordReset[]
+
+  @@map("users")
+}
+
+model UserSettings {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // TTS
+  ttsLanguage       TTSLanguage @default(vi)
+  ttsVoice          TTSVoice    @default(female)
+  ttsSpeed          Float       @default(1.0)
+  ttsVolume         Float       @default(1.0)
+  autoNextChapter   Boolean     @default(false)
+  sleepTimerMinutes Int         @default(0)
+
+  // UI
+  theme      UITheme @default(light)
+  bgColor    String  @default("#ffffff")
+  textColor  String  @default("#1a1a1a")
+  fontFamily String  @default("sans-serif")
+  fontSize   Int     @default(16)
+  lineHeight Float   @default(1.6)
+
+  @@map("user_settings")
+}
+
+model PasswordReset {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@map("password_resets")
+}
+
+// ─── Story & Chapter ──────────────────────────────────────────────────────────
+
+model Story {
+  id          String   @id @default(uuid())
+  nameId      String   @unique  // slug
+  name        String
+  posterUrl   String?
+  description String?
+  sourceNote  String?
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  chapters        Chapter[]
+  comments        Comment[]
+  reviews         Review[]
+  bookshelves     Bookshelf[]
+  readingHistories ReadingHistory[]
+  chapterReadLogs  ChapterReadLog[]
+
+  @@map("stories")
+}
+
+model Chapter {
+  id         String   @id @default(uuid())
+  name       String
+  order      Int
+  contentUrl String   // stored in Cloudflare R2
+  storyId    String
+  story      Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  comments        Comment[]
+  readingHistories ReadingHistory[]
+  chapterReadLogs  ChapterReadLog[]
+
+  @@unique([storyId, order])
+  @@map("chapters")
+}
+
+// ─── Comment ──────────────────────────────────────────────────────────────────
+
+model Comment {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storyId         String
+  story           Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  chapterId       String?  // null = story-level comment
+  chapter         Chapter? @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  parentCommentId String?  // null = top-level comment
+  parentComment   Comment? @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: SetNull)
+  replies         Comment[] @relation("CommentReplies")
+  content         String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("comments")
+}
+
+// ─── Review ───────────────────────────────────────────────────────────────────
+
+model Review {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storyId   String
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  rating    Int      // 1–5
+  content   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, storyId])  // one review per user per story
+  @@map("reviews")
+}
+
+// ─── Bookshelf ────────────────────────────────────────────────────────────────
+
+model Bookshelf {
+  id      String   @id @default(uuid())
+  userId  String
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storyId String
+  story   Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  note    String?
+  savedAt DateTime @default(now())
+
+  @@unique([userId, storyId])
+  @@map("bookshelves")
+}
+
+// ─── Reading History ──────────────────────────────────────────────────────────
+
+model ReadingHistory {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storyId       String
+  story         Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  lastChapterId String
+  lastChapter   Chapter  @relation(fields: [lastChapterId], references: [id], onDelete: Cascade)
+  lastReadAt    DateTime @default(now()) @updatedAt
+
+  @@unique([userId, storyId])
+  @@map("reading_histories")
+}
+
+model ChapterReadLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapterId String
+  chapter   Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  storyId   String
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  readAt    DateTime @default(now())
+
+  @@unique([userId, chapterId])
+  @@map("chapter_read_logs")
+}

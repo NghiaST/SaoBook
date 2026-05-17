@@ -1,0 +1,1 @@
+LayerChoiceFrontendReact + TypeScript + ViteStylingTailwind CSSStateZustandRoutingReact Router v6API clientAxios + React Query (TanStack Query)BackendNode.js + Fastify + TypeScriptORMPrisma + PostgreSQLAuthJWT (access + refresh)File storageAWS S3 or Cloudflare R2TTSGoogle Cloud TTS / Azure SpeechReal-timeSocket.io or SSECache / sessionsRedisContainerizationDocker + docker-compose

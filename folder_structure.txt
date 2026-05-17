@@ -1,0 +1,68 @@
+react + vite + node.js + fastify
+PostgreSQL + Prisma + R2 Cloud Storage
+TTS with ResponsiveVoice API (many keys)
+
+
+project-root/
+├── frontend/                        # React + TypeScript + Vite
+│   ├── public/
+│   ├── src/
+│   │   ├── assets/                  # static images, fonts
+│   │   ├── components/              # shared/reusable UI components
+│   │   │   ├── ui/                  # base components (Button, Input, Modal…)
+│   │   │   └── layout/              # Header, Sidebar, PageWrapper…
+│   │   ├── features/                # feature-based modules
+│   │   │   ├── auth/                # Register, Login, Recovery pages + logic
+│   │   │   ├── story/               # StoryCard, StoryDetail, StoryList…
+│   │   │   ├── chapter/             # ChapterReader, ChapterNav…
+│   │   │   ├── tts/                 # TTS player, controls, hooks
+│   │   │   ├── comment/             # CommentThread, CommentInput…
+│   │   │   ├── review/              # ReviewForm, StarRating…
+│   │   │   ├── bookshelf/           # Bookshelf page, SaveButton…
+│   │   │   ├── profile/             # ProfilePage, EditProfile…
+│   │   │   ├── settings/            # TTSSettings, UISettings panels
+│   │   │   ├── author/              # AddStory, ChapterManager…
+│   │   │   └── admin/               # UserManagement, Statistics…
+│   │   ├── hooks/                   # global custom hooks (useAuth, useTheme…)
+│   │   ├── lib/                     # api client (axios instance), utils
+│   │   ├── pages/                   # route-level page components
+│   │   ├── router/                  # React Router config + route guards
+│   │   ├── store/                   # Zustand or Redux Toolkit global state
+│   │   ├── styles/                  # global CSS / Tailwind config
+│   │   └── types/                   # shared TypeScript types/interfaces
+│   ├── index.html
+│   ├── vite.config.ts
+│   └── tsconfig.json
+│
+├── backend/                         # Node.js + Fastify (or NestJS)
+│   ├── src/
+│   │   ├── config/                  # env config, db config, s3 config…
+│   │   ├── modules/                 # feature modules (mirrors frontend features)
+│   │   │   ├── auth/                # register, login, refresh, recovery
+│   │   │   ├── user/                # profile CRUD, settings
+│   │   │   ├── story/               # story CRUD, search, filter
+│   │   │   ├── chapter/             # chapter CRUD, file upload, storage
+│   │   │   ├── comment/             # comment + threaded replies
+│   │   │   ├── review/              # review + rating
+│   │   │   ├── bookshelf/           # save/unsave story, notes
+│   │   │   ├── reading/             # reading history, chapter read log
+│   │   │   ├── tts/                 # TTS proxy/service wrapper
+│   │   │   └── admin/               # user management, statistics
+│   │   ├── common/
+│   │   │   ├── middleware/          # auth guard, role guard, rate limiter
+│   │   │   ├── pipes/               # validation, transform
+│   │   │   ├── decorators/          # custom decorators (e.g. @CurrentUser)
+│   │   │   └── exceptions/          # custom error classes
+│   │   ├── storage/                 # S3/R2 client wrapper (upload, get, delete)
+│   │   ├── prisma/                  # Prisma schema + migrations + client
+│   │   │   └── schema.prisma
+│   │   └── main.ts                  # app entry point
+│   ├── .env
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── shared/                          # (optional) shared types between FE + BE
+│   └── types/                       # DTOs, enums shared via npm workspace
+│
+├── package.json                     # npm workspaces root
+└── docker-compose.yml               # PostgreSQL + Redis (for token blacklist)
