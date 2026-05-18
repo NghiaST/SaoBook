@@ -1,7 +1,7 @@
 // src/pages/BookshelfPage.tsx
 import { Link } from 'react-router-dom'
 import { useMyBookshelf, useRemoveFromBookshelf } from '@/lib/queries'
-import { Spinner, EmptyState, Button } from '@/components/ui'
+import { Spinner, EmptyState } from '@/components/ui'
 import { BookMarked, BookOpen, Trash2 } from 'lucide-react'
 
 export function BookshelfPage() {

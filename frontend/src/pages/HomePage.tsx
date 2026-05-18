@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useStories } from '@/lib/queries'
 import { StarRating, Spinner, EmptyState } from '@/components/ui'
 import { BookOpen, TrendingUp, Clock } from 'lucide-react'
-import { formatRelativeTime, truncate } from '@/lib/utils'
+import { formatRelativeTime } from '@/lib/utils'
 import type { Story } from '@/types'
 
 function StoryCard({ story }: { story: Story }) {
@@ -69,7 +69,7 @@ export function HomePage() {
       {/* Hero */}
       <div className="mb-12 text-center">
         <h1 className="font-display text-4xl sm:text-5xl font-bold text-[var(--text)] mb-3">
-          Thế giới truyện
+          Thư Viện Truyện
         </h1>
         <p className="text-[var(--text-muted)] font-body text-lg max-w-xl mx-auto">
           Đọc nghe hàng ngàn câu chuyện — từ cổ điển đến hiện đại.

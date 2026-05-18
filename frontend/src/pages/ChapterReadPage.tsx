@@ -8,7 +8,7 @@ import { useAuthStore } from '@/store/auth.store'
 import { Spinner } from '@/components/ui'
 import {
   ChevronLeft, ChevronRight, List, Play, Pause, Square,
-  Volume2, Gauge, Settings2
+  Volume2, Gauge
 } from 'lucide-react'
 import axios from 'axios'
 

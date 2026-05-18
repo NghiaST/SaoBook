@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useMe, useUpdateProfile, useChangePassword } from '@/lib/queries'
 import { useAuthStore } from '@/store/auth.store'
-import { Input, Button, Avatar, Textarea } from '@/components/ui'
+import { Input, Button, Avatar } from '@/components/ui'
 
 export function ProfilePage() {
   const { user, setUser } = useAuthStore()
