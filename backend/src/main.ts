@@ -6,8 +6,7 @@ import helmet from '@fastify/helmet'
 import jwt from '@fastify/jwt'
 import rateLimit from '@fastify/rate-limit'
 import multipart from '@fastify/multipart'
-import swagger from '@fastify/swagger'
-import swaggerUi from '@fastify/swagger-ui'
+import { setupSwagger } from './config/swagger'
 
 import { config } from './config'
 import { AppError } from './common/exceptions'
@@ -64,17 +63,7 @@ async function bootstrap() {
   // ── Swagger (dev only) ────────────────────────────────────────────────────────
 
   if (config.isDev) {
-    await app.register(swagger, {
-      openapi: {
-        info: { title: 'Story App API', version: '1.0.0' },
-        components: {
-          securitySchemes: {
-            bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-          },
-        },
-      },
-    })
-    await app.register(swaggerUi, { routePrefix: '/docs' })
+    await setupSwagger(app)
   }
 
   // ── Error handler ─────────────────────────────────────────────────────────────
