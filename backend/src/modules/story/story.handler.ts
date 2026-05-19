@@ -1,8 +1,8 @@
 // src/modules/story/story.handler.ts
 import { FastifyRequest, FastifyReply } from 'fastify'
 import prisma from '../../prisma/client'
-import { NotFoundError, ForbiddenError, ConflictError } from '../../common/exceptions'
-import { deleteFile } from '../../storage/r2'
+import { NotFoundError, ForbiddenError, ConflictError, ValidationError } from '../../common/exceptions'
+import { deleteFile, uploadPoster } from '../../storage/r2'
 
 type AuthUser = { id: string; role: string }
 
@@ -148,6 +148,78 @@ export async function deleteStory(
   await prisma.story.delete({ where: { id: story.id } })
 
   return reply.code(204).send()
+}
+
+// ── Upload poster ────────────────────────────────────────────────────────────
+
+export async function uploadStoryPoster(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply,
+) {
+  const { id: userId, role } = request.user as AuthUser
+  const story = await prisma.story.findUnique({ where: { id: request.params.id } })
+  if (!story) throw new NotFoundError('Story')
+  if (story.authorId !== userId && role !== 'admin') throw new ForbiddenError()
+
+  const file = await request.file()
+  if (!file) throw new ValidationError('Poster file is required')
+  if (!file.mimetype.startsWith('image/')) throw new ValidationError('Poster must be an image')
+
+  const buffer = await file.toBuffer()
+  const posterUrl = await uploadPoster(buffer, file.mimetype, story.id)
+
+  if (story.posterUrl && story.posterUrl !== posterUrl) {
+    await deleteFile(story.posterUrl).catch(() => null)
+  }
+
+  await prisma.story.update({
+    where: { id: story.id },
+    data: { posterUrl },
+  })
+
+  return reply.send({ posterUrl })
+}
+
+// ── Upload poster from URL ───────────────────────────────────────────────────
+
+export async function uploadStoryPosterFromUrl(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply,
+) {
+  const { id: userId, role } = request.user as AuthUser
+  const story = await prisma.story.findUnique({ where: { id: request.params.id } })
+  if (!story) throw new NotFoundError('Story')
+  if (story.authorId !== userId && role !== 'admin') throw new ForbiddenError()
+
+  const { url } = request.body as { url?: string }
+  if (!url || !/^https?:\/\//i.test(url)) {
+    throw new ValidationError('Valid image URL is required')
+  }
+
+  const response = await fetch(url)
+  if (!response.ok) throw new ValidationError('Unable to fetch image from URL')
+
+  const contentType = response.headers.get('content-type') ?? ''
+  if (!contentType.startsWith('image/')) throw new ValidationError('URL must point to an image')
+
+  const arrayBuffer = await response.arrayBuffer()
+  const buffer = Buffer.from(arrayBuffer)
+  if (buffer.length > 10 * 1024 * 1024) {
+    throw new ValidationError('Image must be 10MB or smaller')
+  }
+
+  const posterUrl = await uploadPoster(buffer, contentType, story.id)
+
+  if (story.posterUrl && story.posterUrl !== posterUrl) {
+    await deleteFile(story.posterUrl).catch(() => null)
+  }
+
+  await prisma.story.update({
+    where: { id: story.id },
+    data: { posterUrl },
+  })
+
+  return reply.send({ posterUrl })
 }
 
 // ── My Stories ────────────────────────────────────────────────────────────────

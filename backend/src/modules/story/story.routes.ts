@@ -1,7 +1,7 @@
 // src/modules/story/story.routes.ts
 import { FastifyInstance } from 'fastify'
 import * as handler from './story.handler'
-import { requireAuth, requireRole } from '../../common/middleware/auth'
+import { requireRole } from '../../common/middleware/auth'
 import {
   StorySchema, CreateStoryBody, StoryListQuery,
   ChapterSchema, ErrorSchema,
@@ -65,7 +65,7 @@ export async function storyRoutes(app: FastifyInstance) {
     },
   }, handler.listChapters)
 
-  // ── Author / Admin ──────────────────────────────────────────────────────────
+  // ── Author / Admin ─────────────────────────────────────────────────────────-
 
   app.post('/', {
     preHandler: [requireRole('author', 'admin')],
@@ -79,6 +79,50 @@ export async function storyRoutes(app: FastifyInstance) {
       },
     },
   }, handler.createStory)
+
+  app.post<IdParam>('/:id/poster', {
+    preHandler: [requireRole('author', 'admin')],
+    schema: {
+      ...tag, ...bearer,
+      summary: 'Upload story poster image (multipart)',
+      params: { type: 'object', properties: { id: { type: 'string' } } },
+      consumes: ['multipart/form-data'],
+      body: {
+        type: 'object',
+        properties: {
+          file: { type: 'string', format: 'binary' },
+        },
+      },
+      response: {
+        200: { type: 'object', properties: { posterUrl: { type: 'string' } } },
+        403: { description: 'Forbidden', ...ErrorSchema },
+        404: { description: 'Not found', ...ErrorSchema },
+        422: { description: 'Invalid image', ...ErrorSchema },
+      },
+    },
+  }, handler.uploadStoryPoster)
+
+  app.post<IdParam>('/:id/poster-url', {
+    preHandler: [requireRole('author', 'admin')],
+    schema: {
+      ...tag, ...bearer,
+      summary: 'Upload story poster from URL',
+      params: { type: 'object', properties: { id: { type: 'string' } } },
+      body: {
+        type: 'object',
+        required: ['url'],
+        properties: {
+          url: { type: 'string', format: 'uri' },
+        },
+      },
+      response: {
+        200: { type: 'object', properties: { posterUrl: { type: 'string' } } },
+        403: { description: 'Forbidden', ...ErrorSchema },
+        404: { description: 'Not found', ...ErrorSchema },
+        422: { description: 'Invalid URL', ...ErrorSchema },
+      },
+    },
+  }, handler.uploadStoryPosterFromUrl)
 
   app.patch<IdParam>('/:id', {
     preHandler: [requireRole('author', 'admin')],

@@ -141,6 +141,23 @@ export const useDeleteStory = () => {
   })
 }
 
+export const useUploadStoryPoster = () =>
+  useMutation({
+    mutationFn: ({ storyId, file }: { storyId: string; file: File }) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      return api.post<{ posterUrl: string }>(`/stories/${storyId}/poster`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }).then((r) => r.data)
+    },
+  })
+
+export const useUploadStoryPosterFromUrl = () =>
+  useMutation({
+    mutationFn: ({ storyId, url }: { storyId: string; url: string }) =>
+      api.post<{ posterUrl: string }>(`/stories/${storyId}/poster-url`, { url }).then((r) => r.data),
+  })
+
 // ── Chapters ──────────────────────────────────────────────────────────────────
 
 export const useChapter = (id: string) =>
