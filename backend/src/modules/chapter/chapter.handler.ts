@@ -2,9 +2,17 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import prisma from '../../prisma/client'
 import { uploadChapterContent, deleteFile } from '../../storage/r2'
-import { NotFoundError, ForbiddenError } from '../../common/exceptions'
+import { NotFoundError, ForbiddenError, ValidationError } from '../../common/exceptions'
 
 type AuthUser = { id: string; role: string }
+
+function parseChapterId(raw: string): number {
+  const id = Number(raw)
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ValidationError('Invalid chapter id')
+  }
+  return id
+}
 
 // ── Get chapter (public) ──────────────────────────────────────────────────────
 
@@ -12,8 +20,9 @@ export async function getChapter(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply,
 ) {
+  const chapterId = parseChapterId(request.params.id)
   const chapter = await prisma.chapter.findUnique({
-    where: { id: request.params.id },
+    where: { id: chapterId },
     include: {
       story: { select: { id: true, name: true, nameId: true } },
     },
@@ -79,8 +88,9 @@ export async function updateChapter(
   reply: FastifyReply,
 ) {
   const { id: userId, role } = request.user as AuthUser
+  const chapterId = parseChapterId(request.params.id)
   const chapter = await prisma.chapter.findUnique({
-    where: { id: request.params.id },
+    where: { id: chapterId },
     include: { story: true },
   })
   if (!chapter) throw new NotFoundError('Chapter')
@@ -115,8 +125,9 @@ export async function deleteChapter(
   reply: FastifyReply,
 ) {
   const { id: userId, role } = request.user as AuthUser
+  const chapterId = parseChapterId(request.params.id)
   const chapter = await prisma.chapter.findUnique({
-    where: { id: request.params.id },
+    where: { id: chapterId },
     include: { story: true },
   })
   if (!chapter) throw new NotFoundError('Chapter')
@@ -135,7 +146,8 @@ export async function markChapterRead(
   reply: FastifyReply,
 ) {
   const { id: userId } = request.user as AuthUser
-  const chapter = await prisma.chapter.findUnique({ where: { id: request.params.id } })
+  const chapterId = parseChapterId(request.params.id)
+  const chapter = await prisma.chapter.findUnique({ where: { id: chapterId } })
   if (!chapter) throw new NotFoundError('Chapter')
 
   await Promise.all([

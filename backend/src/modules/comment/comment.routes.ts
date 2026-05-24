@@ -21,7 +21,10 @@ export async function commentRoutes(app: FastifyInstance) {
       querystring: {
         type: 'object',
         properties: {
-          chapterId: { type: 'string', description: 'Filter by chapter (omit for story-level)' },
+          chapterId: {
+            anyOf: [{ type: 'integer' }, { type: 'string' }],
+            description: 'Filter by chapter (omit for story-level)',
+          },
         },
       },
       response: { 200: { type: 'array', items: CommentSchema } },

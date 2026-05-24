@@ -1,9 +1,18 @@
 // src/modules/comment/comment.handler.ts
 import { FastifyRequest, FastifyReply } from 'fastify'
 import prisma from '../../prisma/client'
-import { NotFoundError, ForbiddenError } from '../../common/exceptions'
+import { NotFoundError, ForbiddenError, ValidationError } from '../../common/exceptions'
 
 type AuthUser = { id: string; role: string }
+
+function parseOptionalChapterId(raw?: string | number): number | null {
+  if (raw === undefined || raw === null || raw === '') return null
+  const id = typeof raw === 'number' ? raw : Number(raw)
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ValidationError('Invalid chapter id')
+  }
+  return id
+}
 
 export async function listComments(
   request: FastifyRequest<{ Params: { storyId: string }; Querystring: { chapterId?: string } }>,
@@ -11,11 +20,12 @@ export async function listComments(
 ) {
   const { storyId } = request.params
   const { chapterId } = request.query
+  const parsedChapterId = parseOptionalChapterId(chapterId)
 
   const comments = await prisma.comment.findMany({
     where: {
       storyId,
-      chapterId: chapterId ?? null,
+      chapterId: parsedChapterId,
       parentCommentId: null, // top-level only; replies nested below
     },
     orderBy: { createdAt: 'desc' },
@@ -40,14 +50,15 @@ export async function createComment(
   const { id: userId } = request.user as AuthUser
   const { storyId } = request.params
   const { content, chapterId, parentCommentId } = request.body as {
-    content: string; chapterId?: string; parentCommentId?: string
+    content: string; chapterId?: string | number; parentCommentId?: string
   }
+  const parsedChapterId = parseOptionalChapterId(chapterId)
 
   const story = await prisma.story.findUnique({ where: { id: storyId } })
   if (!story) throw new NotFoundError('Story')
 
   const comment = await prisma.comment.create({
-    data: { userId, storyId, content, chapterId, parentCommentId },
+    data: { userId, storyId, content, chapterId: parsedChapterId, parentCommentId },
     include: {
       user: { select: { id: true, username: true, name: true, avatarUrl: true } },
     },

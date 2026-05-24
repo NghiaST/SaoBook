@@ -25,7 +25,7 @@ const client = new S3Client({
 export async function uploadChapterContent(
   content: string,
   storyId: string,
-  chapterId?: string,
+  chapterId?: string | number,
 ): Promise<string> {
   const id = chapterId ?? randomUUID()
   const key = `chapters/${storyId}/${id}.txt`

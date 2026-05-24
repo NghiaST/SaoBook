@@ -219,7 +219,7 @@ export const StoryListQuery = {
 export const ChapterSchema = {
   type: 'object',
   properties: {
-    id:         { type: 'string' },
+    id:         { type: 'integer' },
     name:       { type: 'string' },
     order:      { type: 'integer' },
     contentUrl: { type: 'string' },
@@ -260,7 +260,7 @@ export const CommentSchema = {
     id:              { type: 'string' },
     userId:          { type: 'string' },
     storyId:         { type: 'string' },
-    chapterId:       { type: 'string', nullable: true },
+    chapterId:       { type: 'integer', nullable: true },
     parentCommentId: { type: 'string', nullable: true },
     content:         { type: 'string' },
     createdAt:       { type: 'string', format: 'date-time' },
@@ -279,7 +279,10 @@ export const CreateCommentBody = {
   required: ['content'],
   properties: {
     content:         { type: 'string', minLength: 1 },
-    chapterId:       { type: 'string', description: 'Null = story-level comment' },
+    chapterId:       {
+      anyOf: [{ type: 'integer' }, { type: 'string' }],
+      description: 'Null = story-level comment',
+    },
     parentCommentId: { type: 'string', description: 'Null = top-level comment' },
   },
 }

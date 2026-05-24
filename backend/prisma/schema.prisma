@@ -123,7 +123,7 @@ model Story {
 }
 
 model Chapter {
-  id         String   @id @default(uuid())
+  id         Int      @id @default(autoincrement())
   name       String
   order      Int
   contentUrl String   // stored in Cloudflare R2
@@ -149,7 +149,7 @@ model Comment {
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   storyId         String
   story           Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
-  chapterId       String?  // null = story-level comment
+  chapterId       Int?     // null = story-level comment
   chapter         Chapter? @relation(fields: [chapterId], references: [id], onDelete: SetNull)
   parentCommentId String?  // null = top-level comment
   parentComment   Comment? @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: SetNull)
@@ -201,7 +201,7 @@ model ReadingHistory {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   storyId       String
   story         Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
-  lastChapterId String
+  lastChapterId Int
   lastChapter   Chapter  @relation(fields: [lastChapterId], references: [id], onDelete: Cascade)
   lastReadAt    DateTime @default(now()) @updatedAt
 
@@ -213,7 +213,7 @@ model ChapterReadLog {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  chapterId String
+  chapterId Int
   chapter   Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   storyId   String
   story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
