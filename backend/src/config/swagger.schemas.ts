@@ -180,6 +180,30 @@ export const CreateStoryBody = {
   },
 }
 
+export const UpdateStoryBody = {
+  type: 'object',
+  additionalProperties: true,
+  properties: {
+    name: {
+      anyOf: [{ type: 'string' }, { type: 'object' }],
+    },
+    description: {
+      anyOf: [{ type: 'string' }, { type: 'object' }],
+    },
+    sourceNote: {
+      anyOf: [{ type: 'string' }, { type: 'object' }],
+    },
+    posterUrl: {
+      anyOf: [{ type: 'string' }, { type: 'object' }],
+      description: 'Remote image URL (optional)',
+    },
+    posterFile: {
+      anyOf: [{ type: 'string', format: 'binary' }, { type: 'object' }],
+      description: 'Poster file upload (optional)',
+    },
+  },
+}
+
 export const StoryListQuery = {
   type: 'object',
   properties: {

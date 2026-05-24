@@ -3,7 +3,7 @@ import { FastifyInstance } from 'fastify'
 import * as handler from './story.handler'
 import { requireRole } from '../../common/middleware/auth'
 import {
-  StorySchema, CreateStoryBody, StoryListQuery,
+  StorySchema, CreateStoryBody, UpdateStoryBody, StoryListQuery,
   ChapterSchema, ErrorSchema,
 } from '../../config/swagger.schemas'
 
@@ -127,15 +127,7 @@ export async function storyRoutes(app: FastifyInstance) {
       ...tag, ...bearer,
       summary: 'Update story details',
       params: { type: 'object', properties: { id: { type: 'string' } } },
-      body: {
-        type: 'object',
-        properties: {
-          name:        { type: 'string' },
-          description: { type: 'string' },
-          posterUrl:   { type: 'string' },
-          sourceNote:  { type: 'string' },
-        },
-      },
+      body: UpdateStoryBody,
       response: {
         200: StorySchema,
         403: { description: 'Not your story', ...ErrorSchema },
