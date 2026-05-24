@@ -1,191 +1,153 @@
 // src/pages/AddStoryPage.tsx
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useCreateStory, useUploadStoryPoster, useUploadStoryPosterFromUrl } from '@/lib/queries'
+import { useCreateStory } from '@/lib/queries'
 import { Input, Button } from '@/components/ui'
+import { PosterInput } from '@/features/story/PosterInput'
 import { slugify } from '@/lib/utils'
-import { ImageUp, Link2 } from 'lucide-react'
 
 export function AddStoryPage() {
-  const navigate = useNavigate()
-  const createStory = useCreateStory()
-  const uploadPoster = useUploadStoryPoster()
-  const uploadPosterFromUrl = useUploadStoryPosterFromUrl()
+  const navigate     = useNavigate()
+  const createStory  = useCreateStory()
+
   const [form, setForm] = useState({
     name: '', nameId: '', description: '', sourceNote: '',
   })
-  const [error, setError] = useState('')
-  const [posterError, setPosterError] = useState('')
-  const [posterUrlInput, setPosterUrlInput] = useState('')
-  const [posterFile, setPosterFile] = useState<File | null>(null)
+  const [slugLocked, setSlugLocked] = useState(false)
+  // poster held as File (for FormData) + preview URL (for <img>)
+  const [posterFile,    setPosterFile]    = useState<File | null>(null)
   const [posterPreview, setPosterPreview] = useState('')
-  const [posterPreviewIsObjectUrl, setPosterPreviewIsObjectUrl] = useState(false)
-  const [createdStoryId, setCreatedStoryId] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string
+    nameId?: string
+    poster?: string
+  }>({})
+  const [formError, setFormError] = useState('')
 
-  useEffect(() => {
-    return () => {
-      if (posterPreviewIsObjectUrl && posterPreview) {
-        URL.revokeObjectURL(posterPreview)
-      }
-    }
-  }, [posterPreview, posterPreviewIsObjectUrl])
+  const clearFieldError = (key: 'name' | 'nameId' | 'poster') =>
+    setFieldErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev))
 
-  const setPreview = (url: string, isObjectUrl: boolean) => {
-    if (posterPreviewIsObjectUrl && posterPreview) {
-      URL.revokeObjectURL(posterPreview)
-    }
-    setPosterPreview(url)
-    setPosterPreviewIsObjectUrl(isObjectUrl)
-  }
-
-  const setPosterFromFile = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      setPosterError('Vui lòng chọn ảnh hợp lệ')
-      return
-    }
-    setPosterError('')
-    setPosterFile(file)
-    setPosterUrlInput('')
-    setPreview(URL.createObjectURL(file), true)
-  }
-
-  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    const items = e.clipboardData.items
-    for (const item of items) {
-      if (item.type.startsWith('image/')) {
-        const file = item.getAsFile()
-        if (file) {
-          e.preventDefault()
-          setPosterFromFile(file)
-        }
-        return
-      }
-    }
-
-    const text = e.clipboardData.getData('text')
-    if (text && /^https?:\/\//i.test(text)) {
-      setPosterUrlInput(text)
-      setPosterFile(null)
-      setPosterError('')
-      setPreview(text, false)
-    }
-  }
-
-  const handleLoadUrl = () => {
-    const trimmed = posterUrlInput.trim()
-    if (!trimmed) return
-    try {
-      new URL(trimmed)
-      setPosterFile(null)
-      setPosterError('')
-      setPreview(trimmed, false)
-    } catch {
-      setPosterError('URL không hợp lệ')
-    }
-  }
-
-  const set = (k: keyof typeof form) =>
+  const setField = (k: keyof typeof form) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       const val = e.target.value
-      setForm((f) => ({
-        ...f,
-        [k]: val,
-        ...(k === 'name' ? { nameId: slugify(val) } : {}),
-      }))
+      setForm((f) => ({ ...f, [k]: val }))
     }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    setForm((f) => ({
+      ...f,
+      name: val,
+      ...(slugLocked ? {} : { nameId: slugify(val) }),
+    }))
+    clearFieldError('name')
+    if (!slugLocked) clearFieldError('nameId')
+  }
+
+  const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    if (!slugLocked) setSlugLocked(true)
+    setForm((f) => ({ ...f, nameId: slugify(val) }))
+    clearFieldError('nameId')
+  }
+
+  const normalize = (value: string) => value.trim()
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
-    setPosterError('')
+    setFormError('')
 
-    try {
-      setIsSubmitting(true)
-      const storyId = createdStoryId ?? (await createStory.mutateAsync(form)).id
-      if (!createdStoryId) setCreatedStoryId(storyId)
+    const nextErrors: typeof fieldErrors = {}
+    const name = normalize(form.name)
+    const nameId = slugify(normalize(form.nameId))
 
-      if (posterFile) {
-        await uploadPoster.mutateAsync({ storyId, file: posterFile })
-      } else if (posterUrlInput.trim()) {
-        await uploadPosterFromUrl.mutateAsync({ storyId, url: posterUrlInput.trim() })
-      }
+    if (!name) nextErrors.name = 'Vui lòng nhập tên truyện'
+    if (!nameId) nextErrors.nameId = 'Slug không hợp lệ'
+    if (!posterFile) nextErrors.poster = 'Vui lòng chọn poster'
 
-      navigate('/author')
-    } catch (err: any) {
-      const message = err.response?.data?.message ?? 'Lỗi tạo truyện'
-      setError(message)
-    } finally {
-      setIsSubmitting(false)
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors)
+      return
     }
+
+    setForm((f) => ({ ...f, name, nameId }))
+
+    const formData = new FormData()
+    formData.append('name', name)
+    formData.append('nameId', nameId)
+    if (form.description) formData.append('description', form.description)
+    if (form.sourceNote) formData.append('sourceNote', form.sourceNote)
+    if (posterFile) formData.append('posterFile', posterFile)
+
+    createStory.mutate(formData, {
+      onSuccess: () => navigate('/author'),
+      onError: (err: any) =>
+        setFormError(err.response?.data?.message ?? err.message ?? 'Lỗi tạo truyện'),
+    })
   }
 
   return (
     <div className="page-container py-8 max-w-xl">
       <h1 className="section-title">Thêm truyện mới</h1>
+
       <form onSubmit={handleSubmit} className="card p-6 space-y-4">
-        <Input label="Tên truyện" value={form.name} onChange={set('name')} required />
-        <Input label="Slug (URL)" value={form.nameId} onChange={set('nameId')} required
-          placeholder="ten-truyen-viet-thuong" />
+        {/*
+          PosterInput:
+          - chọn file → File object
+          - paste/nhập URL → fetch blob → new File(...)
+          - Ctrl+V ảnh từ clipboard → File object
+          Tất cả đều kết thúc bằng 1 File object, gửi cùng FormData khi submit
+        */}
+        <PosterInput
+          file={posterFile}
+          preview={posterPreview}
+          onChange={(f, p) => {
+            setPosterFile(f)
+            setPosterPreview(p)
+            if (f) clearFieldError('poster')
+          }}
+        />
+        {fieldErrors.poster && <p className="text-xs text-red-500">{fieldErrors.poster}</p>}
+
+        <Input
+          label="Tên truyện"
+          value={form.name}
+          onChange={handleNameChange}
+          error={fieldErrors.name}
+          required
+        />
+
+        <Input
+          label="Slug (URL)"
+          value={form.nameId}
+          onChange={handleSlugChange}
+          error={fieldErrors.nameId}
+          required
+          placeholder="ten-truyen-viet-thuong"
+        />
+
         <div>
           <label className="label">Giới thiệu truyện</label>
-          <textarea value={form.description} onChange={set('description')} rows={4}
-            className="input resize-none" placeholder="Tóm tắt nội dung…" />
-        </div>
-        <div onPaste={handlePaste} className="space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="label mb-0">Poster (upload, URL, hoặc Ctrl+V)</label>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="btn-outline text-xs gap-1.5"
-            >
-              <ImageUp size={14} /> Upload ảnh
-            </button>
-          </div>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) setPosterFromFile(file)
-              e.target.value = ''
-            }}
+          <textarea
+            value={form.description}
+            onChange={setField('description')}
+            rows={4}
+            className="input resize-none"
+            placeholder="Tóm tắt nội dung…"
           />
-
-          <div className="flex gap-2">
-            <Input
-              label="Poster URL"
-              value={posterUrlInput}
-              onChange={(e) => setPosterUrlInput(e.target.value)}
-              placeholder="https://..."
-            />
-            <Button type="button" variant="outline" className="mt-6 h-10" onClick={handleLoadUrl}>
-              <Link2 size={14} /> Load
-            </Button>
-          </div>
-
-          {posterPreview ? (
-            <div className="relative overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-alt)]">
-              <img src={posterPreview} alt="Poster preview" className="w-full h-56 object-cover" />
-            </div>
-          ) : (
-            <div className="h-44 rounded-xl border border-dashed border-[var(--border)] flex items-center justify-center text-xs text-[var(--text-subtle)]">
-              Dán ảnh (Ctrl+V), upload file, hoặc nhập URL để xem trước
-            </div>
-          )}
-
-          {posterError && <p className="text-sm text-red-500">{posterError}</p>}
         </div>
-        <Input label="Nguồn (ghi chú)" value={form.sourceNote} onChange={set('sourceNote')}
-          placeholder="Ví dụ: Dịch từ nguồn X" />
-        {error && <p className="text-sm text-red-500">{error}</p>}
+
+        <Input
+          label="Nguồn (ghi chú)"
+          value={form.sourceNote}
+          onChange={setField('sourceNote')}
+          placeholder="Ví dụ: Dịch từ nguồn X"
+        />
+
+        {formError && <p className="text-sm text-red-500">{formError}</p>}
+
         <div className="flex gap-3 pt-2">
-          <Button type="submit" loading={createStory.isPending || isSubmitting || uploadPoster.isPending || uploadPosterFromUrl.isPending}>Tạo truyện</Button>
+          <Button type="submit" loading={createStory.isPending}>Tạo truyện</Button>
           <Button type="button" variant="ghost" onClick={() => navigate('/author')}>Hủy</Button>
         </div>
       </form>

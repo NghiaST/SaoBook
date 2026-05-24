@@ -2,7 +2,7 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import api from './api'
 import type {
-  User, Story, Chapter, Comment, MyComment, Review,
+  User, Story, Chapter, Comment, Review,
   BookshelfItem, ReadingHistoryItem, UserSettings, LoginResponse,
 } from '@/types'
 
@@ -67,7 +67,7 @@ export const useUpdateSettings = () => {
 export const useMyComments = () =>
   useQuery({
     queryKey: ['my-comments'],
-    queryFn: () => api.get<MyComment[]>('/users/me/comments').then((r) => r.data),
+    queryFn: () => api.get<Comment[]>('/users/me/comments').then((r) => r.data),
   })
 
 export const useMyBookshelf = () =>
@@ -113,10 +113,22 @@ export const useMyStories = () =>
     queryFn: () => api.get<Story[]>('/stories/mine').then((r) => r.data),
   })
 
+// Helper: build FormData from story fields + optional poster File
+function storyFormData(
+  data: { name?: string; nameId?: string; description?: string; sourceNote?: string },
+  posterFile?: File | null,
+): FormData {
+  const form = new FormData()
+  Object.entries(data).forEach(([k, v]) => { if (v !== undefined) form.append(k, v) })
+  if (posterFile) form.append('posterFile', posterFile)
+  return form
+}
+
 export const useCreateStory = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: Partial<Story>) => api.post<Story>('/stories', data).then((r) => r.data),
+    mutationFn: (data: FormData) =>
+      api.post<Story>('/stories', data).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-stories'] }),
   })
 }
@@ -124,8 +136,10 @@ export const useCreateStory = () => {
 export const useUpdateStory = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: Partial<Story> & { id: string }) =>
-      api.patch<Story>(`/stories/${id}`, data).then((r) => r.data),
+    mutationFn: ({ id, posterFile, ...data }: {
+      id: string; name?: string; description?: string
+      sourceNote?: string; posterFile?: File | null
+    }) => api.patch<Story>(`/stories/${id}`, storyFormData(data, posterFile)).then((r) => r.data),
     onSuccess: (story) => {
       qc.invalidateQueries({ queryKey: ['my-stories'] })
       qc.invalidateQueries({ queryKey: ['story', story.nameId] })
@@ -140,23 +154,6 @@ export const useDeleteStory = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-stories'] }),
   })
 }
-
-export const useUploadStoryPoster = () =>
-  useMutation({
-    mutationFn: ({ storyId, file }: { storyId: string; file: File }) => {
-      const formData = new FormData()
-      formData.append('file', file)
-      return api.post<{ posterUrl: string }>(`/stories/${storyId}/poster`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      }).then((r) => r.data)
-    },
-  })
-
-export const useUploadStoryPosterFromUrl = () =>
-  useMutation({
-    mutationFn: ({ storyId, url }: { storyId: string; url: string }) =>
-      api.post<{ posterUrl: string }>(`/stories/${storyId}/poster-url`, { url }).then((r) => r.data),
-  })
 
 // ── Chapters ──────────────────────────────────────────────────────────────────
 
