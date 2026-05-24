@@ -65,13 +65,14 @@ export async function storyRoutes(app: FastifyInstance) {
     },
   }, handler.listChapters)
 
-  // ── Author / Admin ─────────────────────────────────────────────────────────-
+  // ── Author / Admin ──────────────────────────────────────────────────────────
 
   app.post('/', {
     preHandler: [requireRole('author', 'admin')],
     schema: {
       ...tag, ...bearer,
       summary: 'Create a new story',
+      consumes: ['multipart/form-data'],
       body: CreateStoryBody,
       response: {
         201: StorySchema,
@@ -80,23 +81,19 @@ export async function storyRoutes(app: FastifyInstance) {
     },
   }, handler.createStory)
 
+  // Multipart route — body schema omitted entirely so Fastify's JSON validator
+  // never touches the multipart stream. Swagger UI gets the file picker via
+  // the custom 'requestBody' field which @fastify/swagger passes through as-is.
   app.post<IdParam>('/:id/poster', {
     preHandler: [requireRole('author', 'admin')],
     schema: {
       ...tag, ...bearer,
-      summary: 'Upload story poster image (multipart)',
+      summary: 'Upload story poster image (multipart/form-data)',
       params: { type: 'object', properties: { id: { type: 'string' } } },
-      consumes: ['multipart/form-data'],
-      body: {
-        type: 'object',
-        properties: {
-          file: { type: 'string', format: 'binary' },
-        },
-      },
       response: {
         200: { type: 'object', properties: { posterUrl: { type: 'string' } } },
-        403: { description: 'Forbidden', ...ErrorSchema },
-        404: { description: 'Not found', ...ErrorSchema },
+        403: { description: 'Forbidden',     ...ErrorSchema },
+        404: { description: 'Not found',     ...ErrorSchema },
         422: { description: 'Invalid image', ...ErrorSchema },
       },
     },
@@ -106,7 +103,7 @@ export async function storyRoutes(app: FastifyInstance) {
     preHandler: [requireRole('author', 'admin')],
     schema: {
       ...tag, ...bearer,
-      summary: 'Upload story poster from URL',
+      summary: 'Upload story poster from remote URL',
       params: { type: 'object', properties: { id: { type: 'string' } } },
       body: {
         type: 'object',
@@ -117,8 +114,8 @@ export async function storyRoutes(app: FastifyInstance) {
       },
       response: {
         200: { type: 'object', properties: { posterUrl: { type: 'string' } } },
-        403: { description: 'Forbidden', ...ErrorSchema },
-        404: { description: 'Not found', ...ErrorSchema },
+        403: { description: 'Forbidden',   ...ErrorSchema },
+        404: { description: 'Not found',   ...ErrorSchema },
         422: { description: 'Invalid URL', ...ErrorSchema },
       },
     },
@@ -133,8 +130,10 @@ export async function storyRoutes(app: FastifyInstance) {
       body: {
         type: 'object',
         properties: {
-          name: { type: 'string' }, description: { type: 'string' },
-          posterUrl: { type: 'string' }, sourceNote: { type: 'string' },
+          name:        { type: 'string' },
+          description: { type: 'string' },
+          posterUrl:   { type: 'string' },
+          sourceNote:  { type: 'string' },
         },
       },
       response: {

@@ -45,6 +45,7 @@ async function bootstrap() {
 
   await app.register(multipart, {
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    attachFieldsToBody: true,
   })
 
   await app.register(jwt, {

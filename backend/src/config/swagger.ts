@@ -13,8 +13,8 @@ export async function setupSwagger(app: FastifyInstance) {
         version: '1.0.0',
       },
       servers: [
-        { url: 'http://localhost:3000', description: 'Development' },
-        { url: 'https://your-backend.onrender.com', description: 'Production' },
+        { url: 'http://localhost:3000',                description: 'Development' },
+        { url: 'https://your-backend.onrender.com',    description: 'Production'  },
       ],
       tags: [
         { name: 'Auth',      description: 'Register, login, token refresh, password recovery' },
@@ -35,6 +35,27 @@ export async function setupSwagger(app: FastifyInstance) {
             description: 'Paste your access token here (obtained from /api/auth/login)',
           },
         },
+        // Reusable request bodies for multipart endpoints
+        requestBodies: {
+          PosterUpload: {
+            required: true,
+            content: {
+              'multipart/form-data': {
+                schema: {
+                  type: 'object',
+                  required: ['file'],
+                  properties: {
+                    file: {
+                      type: 'string',
+                      format: 'binary',
+                      description: 'Image file (JPEG, PNG, WebP, …) — max 10 MB',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     },
   })
@@ -42,9 +63,9 @@ export async function setupSwagger(app: FastifyInstance) {
   await app.register(swaggerUi, {
     routePrefix: '/docs',
     uiConfig: {
-      docExpansion: 'list',       // show all tags expanded
+      docExpansion: 'list',
       deepLinking: true,
-      persistAuthorization: true, // keeps the JWT between page refreshes
+      persistAuthorization: true,
     },
     staticCSP: true,
   })

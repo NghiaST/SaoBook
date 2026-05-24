@@ -154,12 +154,29 @@ export const StorySchema = {
 export const CreateStoryBody = {
   type: 'object',
   required: ['name', 'nameId'],
+  additionalProperties: true,
   properties: {
-    name:        { type: 'string' },
-    nameId:      { type: 'string', description: 'URL slug, must be unique' },
-    description: { type: 'string' },
-    posterUrl:   { type: 'string' },
-    sourceNote:  { type: 'string' },
+    name: {
+      anyOf: [{ type: 'string' }, { type: 'object' }],
+    },
+    nameId: {
+      anyOf: [{ type: 'string' }, { type: 'object' }],
+      description: 'URL slug, must be unique',
+    },
+    description: {
+      anyOf: [{ type: 'string' }, { type: 'object' }],
+    },
+    sourceNote: {
+      anyOf: [{ type: 'string' }, { type: 'object' }],
+    },
+    posterUrl: {
+      anyOf: [{ type: 'string' }, { type: 'object' }],
+      description: 'Remote image URL (optional)',
+    },
+    posterFile: {
+      anyOf: [{ type: 'string', format: 'binary' }, { type: 'object' }],
+      description: 'Poster file upload (optional)',
+    },
   },
 }
 
