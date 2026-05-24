@@ -157,11 +157,11 @@ export const useDeleteStory = () => {
 
 // ── Chapters ──────────────────────────────────────────────────────────────────
 
-export const useChapter = (id: string) =>
+export const useChapter = (id: number) =>
   useQuery({
     queryKey: ['chapter', id],
     queryFn: () => api.get<Chapter>(`/chapters/${id}`).then((r) => r.data),
-    enabled: !!id,
+    enabled: Number.isFinite(id),
   })
 
 export const useCreateChapter = (storyId: string) => {
@@ -176,7 +176,7 @@ export const useCreateChapter = (storyId: string) => {
 export const useUpdateChapter = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name?: string; content?: string; order?: number }) =>
+    mutationFn: ({ id, ...data }: { id: number; name?: string; content?: string; order?: number }) =>
       api.patch<Chapter>(`/chapters/${id}`, data).then((r) => r.data),
     onSuccess: (ch) => qc.invalidateQueries({ queryKey: ['chapter', ch.id] }),
   })
@@ -185,19 +185,19 @@ export const useUpdateChapter = () => {
 export const useDeleteChapter = (storyId: string) => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/chapters/${id}`),
+    mutationFn: (id: number) => api.delete(`/chapters/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['chapters', storyId] }),
   })
 }
 
 export const useMarkChapterRead = () =>
   useMutation({
-    mutationFn: (chapterId: string) => api.post(`/chapters/${chapterId}/read`),
+    mutationFn: (chapterId: number) => api.post(`/chapters/${chapterId}/read`),
   })
 
 // ── Comments ──────────────────────────────────────────────────────────────────
 
-export const useComments = (storyId: string, chapterId?: string) =>
+export const useComments = (storyId: string, chapterId?: number) =>
   useQuery({
     queryKey: ['comments', storyId, chapterId],
     queryFn: () =>
@@ -210,7 +210,7 @@ export const useComments = (storyId: string, chapterId?: string) =>
 export const useCreateComment = (storyId: string) => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: { content: string; chapterId?: string; parentCommentId?: string }) =>
+    mutationFn: (data: { content: string; chapterId?: number; parentCommentId?: string }) =>
       api.post<Comment>(`/stories/${storyId}/comments`, data).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['comments', storyId] }),
   })

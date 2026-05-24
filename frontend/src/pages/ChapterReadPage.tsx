@@ -78,14 +78,15 @@ function TTSBar({ text, chapterId, onNextChapter }: {
 }
 
 export function ChapterReadPage() {
-  const { nameId, chapterId } = useParams<{ nameId: string; chapterId: string }>()
+  const { nameId, chapterId: chapterIdParam } = useParams<{ nameId: string; chapterId: string }>()
+  const chapterId = chapterIdParam ? Number(chapterIdParam) : NaN
   const navigate = useNavigate()
   const { isAuthenticated } = useAuthStore()
   const { fontSize, lineHeight, fontFamily, bgColor, textColor } = useSettingsStore()
   const markRead = useMarkChapterRead()
   const { stop } = useTTSStore()
 
-  const { data: chapter, isLoading } = useChapter(chapterId!)
+  const { data: chapter, isLoading } = useChapter(chapterId)
   const { data: chapters } = useChapterList(nameId!)
   const [content, setContent] = useState<string | null>(null)
   const [contentLoading, setContentLoading] = useState(false)
@@ -104,7 +105,7 @@ export function ChapterReadPage() {
 
   // Mark as read
   useEffect(() => {
-    if (isAuthenticated && chapterId) {
+    if (isAuthenticated && Number.isFinite(chapterId)) {
       markRead.mutate(chapterId)
     }
   }, [chapterId, isAuthenticated])
@@ -116,6 +117,9 @@ export function ChapterReadPage() {
   }, [chapterId])
 
   if (isLoading) return <div className="flex justify-center py-24"><Spinner className="w-8 h-8" /></div>
+  if (!Number.isFinite(chapterId)) {
+    return <div className="page-container py-10 text-center text-[var(--text-muted)]">Không tìm thấy chương</div>
+  }
   if (!chapter) return <div className="page-container py-10 text-center text-[var(--text-muted)]">Không tìm thấy chương</div>
 
   const currentIndex = chapters?.findIndex((c) => c.id === chapterId) ?? -1

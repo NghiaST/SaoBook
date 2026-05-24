@@ -53,7 +53,7 @@ export interface Story {
 }
 
 export interface Chapter {
-  id: string
+  id: number
   name: string
   order: number
   contentUrl: string
@@ -68,7 +68,7 @@ export interface Comment {
   userId: string
   user: { id: string; username: string; name: string; avatarUrl?: string }
   storyId: string
-  chapterId?: string
+  chapterId?: number
   parentCommentId?: string
   content: string
   createdAt: string
@@ -104,8 +104,8 @@ export interface ReadingHistoryItem {
   userId: string
   storyId: string
   story: Pick<Story, 'id' | 'name' | 'nameId' | 'posterUrl'>
-  lastChapterId: string
-  lastChapter: { id: string; name: string; order: number }
+  lastChapterId: number
+  lastChapter: { id: number; name: string; order: number }
   lastReadAt: string
 }
 
