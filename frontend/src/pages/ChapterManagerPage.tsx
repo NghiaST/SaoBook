@@ -1,10 +1,12 @@
 // src/pages/ChapterManagerPage.tsx
 import { useState, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import axios from 'axios'
 import {
   useChapterList, useMyStories, useCreateChapter,
   useUpdateChapter, useDeleteChapter,
 } from '@/lib/queries'
+import api from '@/lib/api'
 import { Button, Spinner, Input, EmptyState } from '@/components/ui'
 import { Plus, Edit2, Trash2, Check, X, Upload } from 'lucide-react'
 import type { Chapter } from '@/types'
@@ -16,17 +18,51 @@ function ChapterRow({
   onDelete,
 }: {
   chapter: Chapter; storyId: string
-  onDelete: (id: string) => void
+  onDelete: (id: number) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<EditState>({ name: chapter.name, content: '' })
+  const [originalContent, setOriginalContent] = useState('')
+  const [contentLoading, setContentLoading] = useState(false)
+  const [contentError, setContentError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const updateChapter = useUpdateChapter()
   const deleteChapter = useDeleteChapter(storyId)
 
+  const loadContent = async () => {
+    setContentLoading(true)
+    setContentError('')
+    try {
+      const { data } = await api.get<Chapter>(`/chapters/${chapter.id}`)
+      if (data.contentUrl) {
+        const res = await axios.get<string>(data.contentUrl, { responseType: 'text' })
+        setForm((f) => ({ ...f, content: res.data }))
+        setOriginalContent(res.data)
+      } else {
+        setForm((f) => ({ ...f, content: '' }))
+        setOriginalContent('')
+      }
+    } catch {
+      setContentError('Không thể tải nội dung chương.')
+    } finally {
+      setContentLoading(false)
+    }
+  }
+
+  const startEdit = () => {
+    setEditing(true)
+    setForm({ name: chapter.name, content: '' })
+    setOriginalContent('')
+    void loadContent()
+  }
+
   const saveEdit = () => {
-    const payload: { id: string; name?: string; content?: string } = { id: chapter.id, name: form.name }
-    if (form.content.trim()) payload.content = form.content
+    const payload: { id: number; name?: string; content?: string } = { id: chapter.id, name: form.name }
+    const trimmed = form.content.trim()
+    const originalTrimmed = originalContent.trim()
+    if (trimmed && trimmed !== originalTrimmed) {
+      payload.content = form.content
+    }
     updateChapter.mutate(payload, { onSuccess: () => setEditing(false) })
   }
 
@@ -50,9 +86,12 @@ function ChapterRow({
             <textarea value={form.content}
               onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
               rows={6} className="input resize-y text-sm font-body"
-              placeholder="Nội dung chương (để trống nếu không thay đổi)…" />
+              placeholder={contentLoading ? 'Đang tải nội dung…' : 'Nội dung chương…'}
+              disabled={contentLoading}
+            />
+            {contentError && <p className="text-xs text-red-500">{contentError}</p>}
             <div className="flex gap-2">
-              <Button size="sm" onClick={saveEdit} loading={updateChapter.isPending}>
+              <Button size="sm" onClick={saveEdit} loading={updateChapter.isPending} disabled={contentLoading}>
                 <Check size={13} /> Lưu
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
@@ -67,7 +106,7 @@ function ChapterRow({
 
       {!editing && (
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          <button onClick={() => { setEditing(true); setForm({ name: chapter.name, content: '' }) }}
+          <button onClick={startEdit}
             className="btn-ghost p-1.5 rounded-lg" title="Chỉnh sửa">
             <Edit2 size={14} />
           </button>
@@ -101,9 +140,18 @@ export function ChapterManagerPage() {
 
   const [newChapter, setNewChapter] = useState({ name: '', content: '' })
   const [showForm, setShowForm] = useState(false)
-  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
+  const [deletedIds, setDeletedIds] = useState<Set<number>>(new Set())
 
   const story = stories?.find((s) => s.id === storyId)
+
+  const parseChapterFile = (rawText: string, fallbackName: string) => {
+    const lines = rawText.replace(/\r\n/g, '\n').split('\n')
+    const name = lines[0]?.trim() || fallbackName
+    let contentLines = lines.slice(3)
+    if (!contentLines.length) contentLines = lines.slice(1)
+    const content = contentLines.join('\n').trim()
+    return { name, content }
+  }
 
   const handleAdd = () => {
     if (!newChapter.name.trim() || !newChapter.content.trim()) return
@@ -118,9 +166,10 @@ export function ChapterManagerPage() {
     if (!files.length) return
 
     for (const file of files) {
-      const content = await file.text()
-      // Use filename (without extension) as chapter name
-      const name = file.name.replace(/\.[^.]+$/, '')
+      const rawText = await file.text()
+      const fallbackName = file.name.replace(/\.[^.]+$/, '')
+      const { name, content } = parseChapterFile(rawText, fallbackName)
+      if (!name.trim() || !content.trim()) continue
       await new Promise<void>((resolve) =>
         createChapter.mutate({ name, content }, { onSuccess: () => resolve(), onError: () => resolve() })
       )
