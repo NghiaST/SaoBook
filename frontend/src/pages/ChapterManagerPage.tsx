@@ -18,7 +18,7 @@ function ChapterRow({
   onDelete,
 }: {
   chapter: Chapter; storyId: string
-  onDelete: (id: number) => void
+  onDelete: (id: string) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<EditState>({ name: chapter.name, content: '' })
@@ -57,7 +57,7 @@ function ChapterRow({
   }
 
   const saveEdit = () => {
-    const payload: { id: number; name?: string; content?: string } = { id: chapter.id, name: form.name }
+    const payload: { id: string; name?: string; content?: string } = { id: chapter.id, name: form.name }
     const trimmed = form.content.trim()
     const originalTrimmed = originalContent.trim()
     if (trimmed && trimmed !== originalTrimmed) {
@@ -140,7 +140,7 @@ export function ChapterManagerPage() {
 
   const [newChapter, setNewChapter] = useState({ name: '', content: '' })
   const [showForm, setShowForm] = useState(false)
-  const [deletedIds, setDeletedIds] = useState<Set<number>>(new Set())
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
 
   const story = stories?.find((s) => s.id === storyId)
 
