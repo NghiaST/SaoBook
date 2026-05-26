@@ -137,7 +137,7 @@ export const useUpdateStory = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, posterFile, ...data }: {
-      id: string; name?: string; description?: string
+      id: number; name?: string; description?: string
       sourceNote?: string; posterFile?: File | null
     }) => api.patch<Story>(`/stories/${id}`, storyFormData(data, posterFile)).then((r) => r.data),
     onSuccess: (story) => {
@@ -150,7 +150,7 @@ export const useUpdateStory = () => {
 export const useDeleteStory = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/stories/${id}`),
+    mutationFn: (id: number) => api.delete(`/stories/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-stories'] }),
   })
 }
@@ -164,7 +164,7 @@ export const useChapter = (id: number) =>
     enabled: Number.isFinite(id),
   })
 
-export const useCreateChapter = (storyId: string) => {
+export const useCreateChapter = (storyId: number) => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: { name: string; content: string; order?: number }) =>
@@ -182,7 +182,7 @@ export const useUpdateChapter = () => {
   })
 }
 
-export const useDeleteChapter = (storyId: string) => {
+export const useDeleteChapter = (storyId: number) => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => api.delete(`/chapters/${id}`),
@@ -197,17 +197,17 @@ export const useMarkChapterRead = () =>
 
 // ── Comments ──────────────────────────────────────────────────────────────────
 
-export const useComments = (storyId: string, chapterId?: number) =>
+export const useComments = (storyId: number, chapterId?: number) =>
   useQuery({
     queryKey: ['comments', storyId, chapterId],
     queryFn: () =>
       api.get<Comment[]>(`/stories/${storyId}/comments`, {
         params: chapterId ? { chapterId } : {},
       }).then((r) => r.data),
-    enabled: !!storyId,
+    enabled: Number.isFinite(storyId) && storyId > 0,
   })
 
-export const useCreateComment = (storyId: string) => {
+export const useCreateComment = (storyId: number) => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: { content: string; chapterId?: number; parentCommentId?: string }) =>
@@ -216,7 +216,7 @@ export const useCreateComment = (storyId: string) => {
   })
 }
 
-export const useDeleteComment = (storyId: string) => {
+export const useDeleteComment = (storyId: number) => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.delete(`/comments/${id}`),
@@ -226,14 +226,14 @@ export const useDeleteComment = (storyId: string) => {
 
 // ── Reviews ───────────────────────────────────────────────────────────────────
 
-export const useReviews = (storyId: string) =>
+export const useReviews = (storyId: number) =>
   useQuery({
     queryKey: ['reviews', storyId],
     queryFn: () => api.get<Review[]>(`/stories/${storyId}/reviews`).then((r) => r.data),
-    enabled: !!storyId,
+    enabled: Number.isFinite(storyId) && storyId > 0,
   })
 
-export const useUpsertReview = (storyId: string) => {
+export const useUpsertReview = (storyId: number) => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: { rating: number; content?: string }) =>
@@ -250,7 +250,7 @@ export const useUpsertReview = (storyId: string) => {
 export const useSaveToBookshelf = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ storyId, note }: { storyId: string; note?: string }) =>
+    mutationFn: ({ storyId, note }: { storyId: number; note?: string }) =>
       api.put(`/bookshelf/${storyId}`, { note }).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-bookshelf'] }),
   })
@@ -259,7 +259,7 @@ export const useSaveToBookshelf = () => {
 export const useRemoveFromBookshelf = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (storyId: string) => api.delete(`/bookshelf/${storyId}`),
+    mutationFn: (storyId: number) => api.delete(`/bookshelf/${storyId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-bookshelf'] }),
   })
 }

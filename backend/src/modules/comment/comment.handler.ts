@@ -14,11 +14,19 @@ function parseOptionalChapterId(raw?: string | number): number | null {
   return id
 }
 
+function parseStoryId(raw: string): number {
+  const id = Number(raw)
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ValidationError('Invalid story id')
+  }
+  return id
+}
+
 export async function listComments(
   request: FastifyRequest<{ Params: { storyId: string }; Querystring: { chapterId?: string } }>,
   reply: FastifyReply,
 ) {
-  const { storyId } = request.params
+  const storyId = parseStoryId(request.params.storyId)
   const { chapterId } = request.query
   const parsedChapterId = parseOptionalChapterId(chapterId)
 
@@ -48,7 +56,7 @@ export async function createComment(
   reply: FastifyReply,
 ) {
   const { id: userId } = request.user as AuthUser
-  const { storyId } = request.params
+  const storyId = parseStoryId(request.params.storyId)
   const { content, chapterId, parentCommentId } = request.body as {
     content: string; chapterId?: string | number; parentCommentId?: string
   }

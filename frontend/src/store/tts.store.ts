@@ -7,10 +7,10 @@ interface TTSState {
   status: TTSStatus
   utterance: SpeechSynthesisUtterance | null
   text: string
-  chapterId: string | null
+  chapterId: number | null
   sleepTimer: ReturnType<typeof setTimeout> | null
 
-  play: (text: string, chapterId: string, settings: {
+  play: (text: string, chapterId: number, settings: {
     lang: string; voice: 'male' | 'female'
     speed: number; volume: number
     sleepTimerMinutes: number

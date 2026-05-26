@@ -13,7 +13,7 @@ import {
 import axios from 'axios'
 
 function TTSBar({ text, chapterId, onNextChapter }: {
-  text: string; chapterId: string; onNextChapter?: () => void
+  text: string; chapterId: number; onNextChapter?: () => void
 }) {
   const { status, play, pause, resume, stop } = useTTSStore()
   const { ttsLanguage, ttsVoice, ttsSpeed, ttsVolume, autoNextChapter, sleepTimerMinutes, updateTTS } = useSettingsStore()

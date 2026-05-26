@@ -5,12 +5,21 @@ import { NotFoundError, ForbiddenError, ValidationError } from '../../common/exc
 
 type AuthUser = { id: string; role: string }
 
+function parseStoryId(raw: string): number {
+  const id = Number(raw)
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ValidationError('Invalid story id')
+  }
+  return id
+}
+
 export async function listReviews(
   request: FastifyRequest<{ Params: { storyId: string } }>,
   reply: FastifyReply,
 ) {
+  const storyId = parseStoryId(request.params.storyId)
   const reviews = await prisma.review.findMany({
-    where: { storyId: request.params.storyId },
+    where: { storyId },
     orderBy: { createdAt: 'desc' },
     include: {
       user: { select: { id: true, username: true, name: true, avatarUrl: true } },
@@ -24,7 +33,7 @@ export async function upsertReview(
   reply: FastifyReply,
 ) {
   const { id: userId } = request.user as AuthUser
-  const { storyId } = request.params
+  const storyId = parseStoryId(request.params.storyId)
   const { rating, content } = request.body as { rating: number; content?: string }
 
   if (rating < 1 || rating > 5) throw new ValidationError('Rating must be between 1 and 5')
@@ -49,7 +58,7 @@ export async function deleteReview(
   reply: FastifyReply,
 ) {
   const { id: userId, role } = request.user as AuthUser
-  const { storyId } = request.params
+  const storyId = parseStoryId(request.params.storyId)
 
   const review = await prisma.review.findUnique({
     where: { userId_storyId: { userId, storyId } },

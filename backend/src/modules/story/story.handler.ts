@@ -11,6 +11,14 @@ type AuthUser = { id: string; role: string }
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']
 const MAX_BYTES = 10 * 1024 * 1024
 
+function parseStoryId(raw: string): number {
+  const id = Number(raw)
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ValidationError('Invalid story id')
+  }
+  return id
+}
+
 // ── Helper: extract text fields + optional poster file from multipart body ────
 
 interface StoryFields {
@@ -196,7 +204,8 @@ export async function updateStory(
   reply: FastifyReply,
 ) {
   const { id: userId, role } = request.user as AuthUser
-  const story = await prisma.story.findUnique({ where: { id: request.params.id } })
+  const storyId = parseStoryId(request.params.id)
+  const story = await prisma.story.findUnique({ where: { id: storyId } })
   if (!story) throw new NotFoundError('Story')
   if (story.authorId !== userId && role !== 'admin') throw new ForbiddenError()
 
@@ -250,8 +259,9 @@ export async function deleteStory(
   reply: FastifyReply,
 ) {
   const { id: userId, role } = request.user as AuthUser
+  const storyId = parseStoryId(request.params.id)
   const story = await prisma.story.findUnique({
-    where: { id: request.params.id },
+    where: { id: storyId },
     include: { chapters: true },
   })
   if (!story) throw new NotFoundError('Story')
@@ -271,7 +281,8 @@ export async function uploadStoryPoster(
   reply: FastifyReply,
 ) {
   const { id: userId, role } = request.user as AuthUser
-  const story = await prisma.story.findUnique({ where: { id: request.params.id } })
+  const storyId = parseStoryId(request.params.id)
+  const story = await prisma.story.findUnique({ where: { id: storyId } })
   if (!story) throw new NotFoundError('Story')
   if (story.authorId !== userId && role !== 'admin') throw new ForbiddenError()
 
@@ -299,7 +310,8 @@ export async function uploadStoryPosterFromUrl(
   reply: FastifyReply,
 ) {
   const { id: userId, role } = request.user as AuthUser
-  const story = await prisma.story.findUnique({ where: { id: request.params.id } })
+  const storyId = parseStoryId(request.params.id)
+  const story = await prisma.story.findUnique({ where: { id: storyId } })
   if (!story) throw new NotFoundError('Story')
   if (story.authorId !== userId && role !== 'admin') throw new ForbiddenError()
 

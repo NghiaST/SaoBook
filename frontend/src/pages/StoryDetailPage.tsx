@@ -8,7 +8,7 @@ import { formatRelativeTime } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth.store'
 import type { Comment } from '@/types'
 
-function CommentItem({ comment, storyId }: { comment: Comment; storyId: string }) {
+function CommentItem({ comment, storyId }: { comment: Comment; storyId: number }) {
   const [replying, setReplying] = useState(false)
   const [replyText, setReplyText] = useState('')
   const { isAuthenticated } = useAuthStore()
@@ -67,14 +67,15 @@ export function StoryDetailPage() {
   const { user, isAuthenticated } = useAuthStore()
   const { data: story, isLoading } = useStory(nameId!)
   const { data: chapters } = useChapterList(nameId!)
-  const { data: reviews } = useReviews(story?.id ?? '')
+  const storyId = story?.id ?? 0
+  const { data: reviews } = useReviews(storyId)
   const { data: bookshelf } = useMyBookshelf()
-  const { data: comments } = useComments(story?.id ?? '')
+  const { data: comments } = useComments(storyId)
 
-  const upsertReview = useUpsertReview(story?.id ?? '')
+  const upsertReview = useUpsertReview(storyId)
   const saveToBookshelf = useSaveToBookshelf()
   const removeFromBookshelf = useRemoveFromBookshelf()
-  const createComment = useCreateComment(story?.id ?? '')
+  const createComment = useCreateComment(storyId)
 
   const [tab, setTab] = useState<'chapters' | 'comments' | 'reviews'>('chapters')
   const [myRating, setMyRating] = useState(0)

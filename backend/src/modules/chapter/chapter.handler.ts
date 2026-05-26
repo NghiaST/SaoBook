@@ -14,6 +14,14 @@ function parseChapterId(raw: string): number {
   return id
 }
 
+function parseStoryId(raw: string): number {
+  const id = Number(raw)
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ValidationError('Invalid story id')
+  }
+  return id
+}
+
 // ── Get chapter (public) ──────────────────────────────────────────────────────
 
 export async function getChapter(
@@ -39,7 +47,8 @@ export async function createChapter(
   reply: FastifyReply,
 ) {
   const { id: userId, role } = request.user as AuthUser
-  const story = await assertStoryOwner(request.params.storyId, userId, role)
+  const storyId = parseStoryId(request.params.storyId)
+  const story = await assertStoryOwner(storyId, userId, role)
 
   const { name, content, order } = request.body as {
     name: string; content: string; order?: number
@@ -62,7 +71,8 @@ export async function createChaptersBatch(
   reply: FastifyReply,
 ) {
   const { id: userId, role } = request.user as AuthUser
-  const story = await assertStoryOwner(request.params.storyId, userId, role)
+  const storyId = parseStoryId(request.params.storyId)
+  const story = await assertStoryOwner(storyId, userId, role)
 
   const chapters = request.body as Array<{ name: string; content: string; order?: number }>
   let currentOrder = await nextOrder(story.id)
@@ -170,14 +180,14 @@ export async function markChapterRead(
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-async function assertStoryOwner(storyId: string, userId: string, role: string) {
+async function assertStoryOwner(storyId: number, userId: string, role: string) {
   const story = await prisma.story.findUnique({ where: { id: storyId } })
   if (!story) throw new NotFoundError('Story')
   if (story.authorId !== userId && role !== 'admin') throw new ForbiddenError()
   return story
 }
 
-async function nextOrder(storyId: string): Promise<number> {
+async function nextOrder(storyId: number): Promise<number> {
   const last = await prisma.chapter.findFirst({
     where: { storyId },
     orderBy: { order: 'desc' },

@@ -1,0 +1,17 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run frontend",
+            "type": "shell",
+            "command": "cd frontend; npm run dev",
+            "inAgents": true
+        },
+        {
+            "label": "Run backend",
+            "type": "shell",
+            "command": "cd backend; npm run dev",
+            "inAgents": true
+        }
+    ]
+}

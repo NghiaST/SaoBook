@@ -6,7 +6,7 @@ import { ReviewSchema, UpsertReviewBody, ErrorSchema } from '../../config/swagge
 
 const tag = { tags: ['Reviews'] }
 const bearer = { security: [{ bearerAuth: [] }] }
-const storyParam = { type: 'object', properties: { storyId: { type: 'string' } } }
+const storyParam = { type: 'object', properties: { storyId: { type: 'integer' } } }
 
 type StoryIdParam = { Params: { storyId: string } }
 

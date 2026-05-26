@@ -38,7 +38,7 @@ export interface User {
 }
 
 export interface Story {
-  id: string
+  id: number
   nameId: string
   name: string
   posterUrl?: string
@@ -57,8 +57,8 @@ export interface Chapter {
   name: string
   order: number
   contentUrl: string
-  storyId: string
-  story?: { id: string; name: string; nameId: string }
+  storyId: number
+  story?: { id: number; name: string; nameId: string }
   createdAt: string
   updatedAt: string
 }
@@ -67,7 +67,7 @@ export interface Comment {
   id: string
   userId: string
   user: { id: string; username: string; name: string; avatarUrl?: string }
-  storyId: string
+  storyId: number
   chapterId?: number
   parentCommentId?: string
   content: string
@@ -84,7 +84,7 @@ export interface Review {
   id: string
   userId: string
   user: { id: string; username: string; name: string; avatarUrl?: string }
-  storyId: string
+  storyId: number
   rating: number
   content?: string
   createdAt: string
@@ -93,7 +93,7 @@ export interface Review {
 export interface BookshelfItem {
   id: string
   userId: string
-  storyId: string
+  storyId: number
   story: Pick<Story, 'id' | 'name' | 'nameId' | 'posterUrl'>
   note?: string
   savedAt: string
@@ -102,7 +102,7 @@ export interface BookshelfItem {
 export interface ReadingHistoryItem {
   id: string
   userId: string
-  storyId: string
+  storyId: number
   story: Pick<Story, 'id' | 'name' | 'nameId' | 'posterUrl'>
   lastChapterId: number
   lastChapter: { id: number; name: string; order: number }

@@ -6,7 +6,7 @@ import { CommentSchema, CreateCommentBody, ErrorSchema } from '../../config/swag
 
 const tag    = { tags: ['Comments'] }
 const bearer = { security: [{ bearerAuth: [] }] }
-const storyParam = { type: 'object', properties: { storyId: { type: 'string' } } }
+const storyParam = { type: 'object', properties: { storyId: { type: 'integer' } } }
 
 type StoryIdParam = { Params: { storyId: string } }
 type StoryChapterParam = { Params: { storyId: string }; Querystring: { chapterId?: string } }

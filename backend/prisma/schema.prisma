@@ -100,7 +100,7 @@ model PasswordReset {
 // ─── Story & Chapter ──────────────────────────────────────────────────────────
 
 model Story {
-  id          String   @id @default(uuid())
+  id          Int      @id @default(autoincrement())
   nameId      String   @unique  // slug
   name        String
   posterUrl   String?
@@ -127,7 +127,7 @@ model Chapter {
   name       String
   order      Int
   contentUrl String   // stored in Cloudflare R2
-  storyId    String
+  storyId    Int
   story      Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -147,7 +147,7 @@ model Comment {
   id              String   @id @default(uuid())
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  storyId         String
+  storyId         Int
   story           Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
   chapterId       Int?     // null = story-level comment
   chapter         Chapter? @relation(fields: [chapterId], references: [id], onDelete: SetNull)
@@ -167,7 +167,7 @@ model Review {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  storyId   String
+  storyId   Int
   story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
   rating    Int      // 1–5
   content   String?
@@ -184,7 +184,7 @@ model Bookshelf {
   id      String   @id @default(uuid())
   userId  String
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  storyId String
+  storyId Int
   story   Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
   note    String?
   savedAt DateTime @default(now())
@@ -199,7 +199,7 @@ model ReadingHistory {
   id            String   @id @default(uuid())
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  storyId       String
+  storyId       Int
   story         Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
   lastChapterId Int
   lastChapter   Chapter  @relation(fields: [lastChapterId], references: [id], onDelete: Cascade)
@@ -215,7 +215,7 @@ model ChapterReadLog {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   chapterId Int
   chapter   Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  storyId   String
+  storyId   Int
   story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
   readAt    DateTime @default(now())
 

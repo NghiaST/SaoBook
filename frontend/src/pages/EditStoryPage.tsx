@@ -6,12 +6,13 @@ import { Input, Button, Spinner } from '@/components/ui'
 import { PosterInput } from '@/features/story/PosterInput'
 
 export function EditStoryPage() {
-  const { id }    = useParams<{ id: string }>()
+  const { id: idParam }    = useParams<{ id: string }>()
+  const storyId = idParam ? Number(idParam) : NaN
   const navigate  = useNavigate()
   const { data: stories, isLoading } = useMyStories()
   const updateStory = useUpdateStory()
 
-  const story = stories?.find((s) => s.id === id)
+  const story = stories?.find((s) => s.id === storyId)
 
   const [form, setForm] = useState({ name: '', description: '', sourceNote: '' })
   // poster: start with null File (existing posterUrl shown separately as initial preview)
@@ -52,7 +53,7 @@ export function EditStoryPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!id) return
+    if (!Number.isFinite(storyId)) return
     setFormError('')
 
     const nextErrors: typeof fieldErrors = {}
@@ -71,7 +72,7 @@ export function EditStoryPage() {
 
     updateStory.mutate(
       {
-        id,
+        id: storyId,
         name,
         description,
         sourceNote,

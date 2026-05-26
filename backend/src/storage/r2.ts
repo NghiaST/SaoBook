@@ -24,7 +24,7 @@ const client = new S3Client({
  */
 export async function uploadChapterContent(
   content: string,
-  storyId: string,
+  storyId: string | number,
   chapterId?: string | number,
 ): Promise<string> {
   const id = chapterId ?? randomUUID()
@@ -49,7 +49,7 @@ export async function uploadChapterContent(
 export async function uploadPoster(
   buffer: Buffer,
   mimeType: string,
-  storyId: string,
+  storyId: string | number,
 ): Promise<string> {
   const ext = mimeType.split('/')[1] ?? 'jpg'
   const key = `posters/${storyId}.${ext}`

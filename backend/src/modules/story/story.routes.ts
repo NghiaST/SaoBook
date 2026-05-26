@@ -89,7 +89,7 @@ export async function storyRoutes(app: FastifyInstance) {
     schema: {
       ...tag, ...bearer,
       summary: 'Upload story poster image (multipart/form-data)',
-      params: { type: 'object', properties: { id: { type: 'string' } } },
+      params: { type: 'object', properties: { id: { type: 'integer' } } },
       response: {
         200: { type: 'object', properties: { posterUrl: { type: 'string' } } },
         403: { description: 'Forbidden',     ...ErrorSchema },
@@ -104,7 +104,7 @@ export async function storyRoutes(app: FastifyInstance) {
     schema: {
       ...tag, ...bearer,
       summary: 'Upload story poster from remote URL',
-      params: { type: 'object', properties: { id: { type: 'string' } } },
+      params: { type: 'object', properties: { id: { type: 'integer' } } },
       body: {
         type: 'object',
         required: ['url'],
@@ -126,7 +126,7 @@ export async function storyRoutes(app: FastifyInstance) {
     schema: {
       ...tag, ...bearer,
       summary: 'Update story details',
-      params: { type: 'object', properties: { id: { type: 'string' } } },
+      params: { type: 'object', properties: { id: { type: 'integer' } } },
       body: UpdateStoryBody,
       response: {
         200: StorySchema,
@@ -141,7 +141,7 @@ export async function storyRoutes(app: FastifyInstance) {
     schema: {
       ...tag, ...bearer,
       summary: 'Delete story and all chapters (cascades R2 files)',
-      params: { type: 'object', properties: { id: { type: 'string' } } },
+      params: { type: 'object', properties: { id: { type: 'integer' } } },
       response: {
         204: { type: 'null', description: 'Deleted' },
         403: { description: 'Forbidden', ...ErrorSchema },

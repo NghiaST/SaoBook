@@ -121,7 +121,7 @@ export const ChangePasswordBody = {
 export const StorySchema = {
   type: 'object',
   properties: {
-    id:          { type: 'string' },
+    id:          { type: 'integer' },
     nameId:      { type: 'string' },
     name:        { type: 'string' },
     posterUrl:   { type: 'string', nullable: true },
@@ -223,7 +223,7 @@ export const ChapterSchema = {
     name:       { type: 'string' },
     order:      { type: 'integer' },
     contentUrl: { type: 'string' },
-    storyId:    { type: 'string' },
+    storyId:    { type: 'integer' },
     createdAt:  { type: 'string', format: 'date-time' },
     updatedAt:  { type: 'string', format: 'date-time' },
   },
@@ -259,7 +259,7 @@ export const CommentSchema = {
   properties: {
     id:              { type: 'string' },
     userId:          { type: 'string' },
-    storyId:         { type: 'string' },
+    storyId:         { type: 'integer' },
     chapterId:       { type: 'integer', nullable: true },
     parentCommentId: { type: 'string', nullable: true },
     content:         { type: 'string' },
@@ -294,7 +294,7 @@ export const ReviewSchema = {
   properties: {
     id:        { type: 'string' },
     userId:    { type: 'string' },
-    storyId:   { type: 'string' },
+    storyId:   { type: 'integer' },
     rating:    { type: 'integer', minimum: 1, maximum: 5 },
     content:   { type: 'string', nullable: true },
     createdAt: { type: 'string', format: 'date-time' },

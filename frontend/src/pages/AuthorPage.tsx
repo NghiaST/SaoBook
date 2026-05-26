@@ -9,7 +9,7 @@ import { useState } from 'react'
 export function AuthorPage() {
   const { data: stories, isLoading } = useMyStories()
   const deleteStory = useDeleteStory()
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null)
 
   return (
     <div className="page-container py-8">

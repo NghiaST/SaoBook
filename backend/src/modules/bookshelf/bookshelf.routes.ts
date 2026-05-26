@@ -6,7 +6,7 @@ import { BookshelfBody, ErrorSchema } from '../../config/swagger.schemas'
 
 const tag = { tags: ['Bookshelf'] }
 const bearer = { security: [{ bearerAuth: [] }] }
-const storyParam = { type: 'object', properties: { storyId: { type: 'string' } } }
+const storyParam = { type: 'object', properties: { storyId: { type: 'integer' } } }
 
 type StoryIdParam = { Params: { storyId: string } }
 

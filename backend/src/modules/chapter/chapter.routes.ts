@@ -8,8 +8,8 @@ import {
 
 const tag    = { tags: ['Chapters'] }
 const bearer = { security: [{ bearerAuth: [] }] }
-const idParam = { type: 'object', properties: { id: { type: 'string' } } }
-const storyParam = { type: 'object', properties: { storyId: { type: 'string' } } }
+const idParam = { type: 'object', properties: { id: { type: 'integer' } } }
+const storyParam = { type: 'object', properties: { storyId: { type: 'integer' } } }
 
 type IdParam = { Params: { id: string } }
 type StoryIdParam = { Params: { storyId: string } }

@@ -1,16 +1,24 @@
 // src/modules/bookshelf/bookshelf.handler.ts
 import { FastifyRequest, FastifyReply } from 'fastify'
 import prisma from '../../prisma/client'
-import { NotFoundError } from '../../common/exceptions'
+import { NotFoundError, ValidationError } from '../../common/exceptions'
 
 type AuthUser = { id: string }
+
+function parseStoryId(raw: string): number {
+  const id = Number(raw)
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ValidationError('Invalid story id')
+  }
+  return id
+}
 
 export async function saveStory(
   request: FastifyRequest<{ Params: { storyId: string } }>,
   reply: FastifyReply,
 ) {
   const { id: userId } = request.user as AuthUser
-  const { storyId } = request.params
+  const storyId = parseStoryId(request.params.storyId)
   const { note } = (request.body as { note?: string }) ?? {}
 
   const story = await prisma.story.findUnique({ where: { id: storyId } })
@@ -30,7 +38,7 @@ export async function removeStory(
   reply: FastifyReply,
 ) {
   const { id: userId } = request.user as AuthUser
-  const { storyId } = request.params
+  const storyId = parseStoryId(request.params.storyId)
 
   await prisma.bookshelf.deleteMany({ where: { userId, storyId } })
   return reply.code(204).send()
@@ -41,7 +49,7 @@ export async function updateNote(
   reply: FastifyReply,
 ) {
   const { id: userId } = request.user as AuthUser
-  const { storyId } = request.params
+  const storyId = parseStoryId(request.params.storyId)
   const { note } = request.body as { note: string }
 
   const item = await prisma.bookshelf.update({

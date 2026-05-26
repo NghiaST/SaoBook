@@ -17,8 +17,8 @@ function ChapterRow({
   chapter, storyId,
   onDelete,
 }: {
-  chapter: Chapter; storyId: string
-  onDelete: (id: string) => void
+  chapter: Chapter; storyId: number
+  onDelete: (id: number) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<EditState>({ name: chapter.name, content: '' })
@@ -57,7 +57,7 @@ function ChapterRow({
   }
 
   const saveEdit = () => {
-    const payload: { id: string; name?: string; content?: string } = { id: chapter.id, name: form.name }
+    const payload: { id: number; name?: string; content?: string } = { id: chapter.id, name: form.name }
     const trimmed = form.content.trim()
     const originalTrimmed = originalContent.trim()
     if (trimmed && trimmed !== originalTrimmed) {
@@ -130,19 +130,18 @@ function ChapterRow({
 }
 
 export function ChapterManagerPage() {
-  const { id: storyId } = useParams<{ id: string }>()
+  const { id: storyIdParam } = useParams<{ id: string }>()
+  const storyId = storyIdParam ? Number(storyIdParam) : NaN
+  const safeStoryId = Number.isFinite(storyId) ? storyId : 0
   const { data: stories } = useMyStories()
-  const { data: chapters, isLoading } = useChapterList(
-    stories?.find((s) => s.id === storyId)?.nameId ?? ''
-  )
-  const createChapter = useCreateChapter(storyId!)
+  const story = stories?.find((s) => s.id === safeStoryId)
+  const { data: chapters, isLoading } = useChapterList(story?.nameId ?? '')
+  const createChapter = useCreateChapter(safeStoryId)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [newChapter, setNewChapter] = useState({ name: '', content: '' })
   const [showForm, setShowForm] = useState(false)
-  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
-
-  const story = stories?.find((s) => s.id === storyId)
+  const [deletedIds, setDeletedIds] = useState<Set<number>>(new Set())
 
   const parseChapterFile = (rawText: string, fallbackName: string) => {
     const lines = rawText.replace(/\r\n/g, '\n').split('\n')
@@ -232,7 +231,7 @@ export function ChapterManagerPage() {
       ) : (
         <div className="flex flex-col gap-2">
           {visibleChapters.map((ch) => (
-            <ChapterRow key={ch.id} chapter={ch} storyId={storyId!}
+            <ChapterRow key={ch.id} chapter={ch} storyId={safeStoryId}
               onDelete={(id) => setDeletedIds((s) => new Set([...s, id]))}
             />
           ))}
