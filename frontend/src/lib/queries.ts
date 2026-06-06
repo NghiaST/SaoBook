@@ -44,7 +44,29 @@ export const useMe = (enabled = true) =>
 export const useUpdateProfile = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: Partial<User>) => api.patch<User>('/users/me', data).then((r) => r.data),
+    mutationFn: (data: { name?: string; email?: string; bio?: string }) =>
+      api.patch<User>('/users/me', data).then((r) => r.data),
+    onSuccess: (user) => qc.setQueryData(['me'], user),
+  })
+}
+
+export const useUploadAvatar = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData()
+      form.append('file', file)
+      return api.post<User>('/users/me/avatar', form).then((r) => r.data)
+    },
+    onSuccess: (user) => qc.setQueryData(['me'], user),
+  })
+}
+
+export const useUploadAvatarFromUrl = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (url: string) =>
+      api.post<User>('/users/me/avatar-from-url', { url }).then((r) => r.data),
     onSuccess: (user) => qc.setQueryData(['me'], user),
   })
 }
@@ -81,7 +103,7 @@ export const useMyHistory = () =>
     queryKey: ['my-history'],
     queryFn: () => api.get<ReadingHistoryItem[]>('/users/me/history').then((r) => r.data),
   })
-
+  
 // ── Stories ───────────────────────────────────────────────────────────────────
 
 interface StoryListParams { q?: string; page?: number; limit?: number; sort?: string }

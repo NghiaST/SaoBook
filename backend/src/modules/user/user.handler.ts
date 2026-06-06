@@ -2,9 +2,13 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import bcrypt from 'bcryptjs'
 import prisma from '../../prisma/client'
-import { ConflictError, UnauthorizedError } from '../../common/exceptions'
+import { ConflictError, UnauthorizedError, ValidationError } from '../../common/exceptions'
+import { uploadAvatar } from '../../storage/r2'
 
 type AuthUser = { id: string; role: string }
+
+const ALLOWED_AVATAR_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5 MB
 
 export async function getMe(request: FastifyRequest, reply: FastifyReply) {
   const { id } = request.user as AuthUser
@@ -35,12 +39,76 @@ export async function updateProfile(request: FastifyRequest, reply: FastifyReply
   const user = await prisma.user.update({
     where: { id },
     data: {
-      ...(body.name && { name: body.name }),
-      ...(body.bio !== undefined && { bio: body.bio }),
-      ...(body.email && { email: body.email }),
-      ...(body.avatarUrl && { avatarUrl: body.avatarUrl }),
+      ...(body.name      !== undefined && { name: body.name }),
+      ...(body.bio       !== undefined && { bio: body.bio }),
+      ...(body.email     !== undefined && { email: body.email }),
+      ...(body.avatarUrl !== undefined && { avatarUrl: body.avatarUrl }),
     },
-    select: { id: true, username: true, email: true, name: true, bio: true, avatarUrl: true },
+    select: {
+      id: true, username: true, email: true,
+      name: true, bio: true, avatarUrl: true,
+    },
+  })
+
+  return reply.send(user)
+}
+
+export async function uploadAvatarHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = request.user as AuthUser
+  const contentType = request.headers['content-type'] ?? ''
+
+  let buffer: Buffer
+  let mimeType: string
+
+  if (contentType.includes('multipart/form-data')) {
+    // ── File upload ──────────────────────────────────────────────────────────
+    const body = request.body as { file?: any }
+    let file = body?.file
+    if (!file && typeof (request as any).file === 'function') {
+      file = await (request as any).file()
+    }
+    if (!file) throw new ValidationError('No file provided')
+
+    mimeType = file.mimetype ?? file.type ?? ''
+    buffer = typeof file.toBuffer === 'function'
+      ? await file.toBuffer()
+      : Buffer.from(file.data ?? file._buf ?? '')
+
+  } else {
+    // ── URL upload ───────────────────────────────────────────────────────────
+    const { url } = request.body as { url?: string }
+    if (!url || !/^https?:\/\//i.test(url)) {
+      throw new ValidationError('A valid http/https URL is required')
+    }
+
+    let response: Response
+    try {
+      response = await fetch(url, { signal: AbortSignal.timeout(10_000) })
+    } catch {
+      throw new ValidationError('Could not reach the URL')
+    }
+    if (!response.ok) throw new ValidationError('URL returned a non-200 response')
+
+    mimeType = response.headers.get('content-type')?.split(';')[0].trim() ?? ''
+    buffer = Buffer.from(await response.arrayBuffer())
+  }
+
+  if (!ALLOWED_AVATAR_MIME.includes(mimeType)) {
+    throw new ValidationError('File must be an image (JPEG, PNG, WebP, GIF, AVIF)')
+  }
+  if (buffer.length > MAX_AVATAR_BYTES) {
+    throw new ValidationError('Avatar must be 5 MB or smaller')
+  }
+
+  const avatarUrl = await uploadAvatar(buffer, mimeType, id)
+
+  const user = await prisma.user.update({
+    where: { id },
+    data: { avatarUrl },
+    select: {
+      id: true, username: true, email: true,
+      name: true, bio: true, avatarUrl: true,
+    },
   })
 
   return reply.send(user)

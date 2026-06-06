@@ -1,19 +1,27 @@
 // src/components/layout/Header.tsx
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { BookOpen, Search, Moon, Sun, User, LogOut, Settings, BookMarked, LayoutDashboard, PenTool } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
 import { useSettingsStore } from '@/store/settings.store'
 import { Avatar, Button } from '@/components/ui'
 import { useState, useRef, useEffect } from 'react'
+import { useScrollHide } from '@/hooks/useScrollHide'
+import { cn } from '@/lib/utils'
 import api from '@/lib/api'
 
 export function Header() {
   const { user, isAuthenticated, logout } = useAuthStore()
   const { theme, updateUI } = useSettingsStore()
-  const navigate = useNavigate()
+  const navigate  = useNavigate()
+  const location  = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [search, setSearch] = useState('')
+  const [search,   setSearch]   = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
+
+  // Chỉ ẩn header khi đang ở trang đọc chương
+  const isReaderPage = /\/stories\/.+\/chapters\//.test(location.pathname)
+  const scrollHidden = useScrollHide(20)
+  const headerHidden = isReaderPage && scrollHidden
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -37,17 +45,17 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-40 bg-[var(--bg)]/90 backdrop-blur-md border-b border-[var(--border)]">
+    <header className={cn('app-header bg-[var(--bg)]/90 backdrop-blur-md border-b border-[var(--border)]', headerHidden && 'app-header--hidden')}>
       <div className="page-container flex items-center gap-4 h-14">
-        {/* Logo */}
         <Link to="/" className="flex items-center gap-2 shrink-0 group">
-          <BookOpen className="w-6 h-6 text-accent transition-transform group-hover:rotate-6" />
+          <img src="/favicon.png" alt="Logo" className="w-6 h-6 transition-all duration-300 ease-out 
+               group-hover:scale-110 
+               group-hover:brightness-110" />
           <span className="font-display text-lg font-semibold text-[var(--text)] hidden sm:block">
-            Đọc Truyện
+            SaoBook
           </span>
         </Link>
 
-        {/* Search */}
         <form onSubmit={handleSearch} className="flex-1 max-w-md">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-subtle)]" />
@@ -61,7 +69,6 @@ export function Header() {
         </form>
 
         <div className="flex items-center gap-1 ml-auto">
-          {/* Theme toggle */}
           <button
             onClick={() => updateUI({ theme: theme === 'light' ? 'dark' : 'light' })}
             className="btn-ghost p-2 rounded-lg"
@@ -69,7 +76,7 @@ export function Header() {
           >
             {theme === 'light'
               ? <Moon className="w-4 h-4 text-[var(--text-muted)]" />
-              : <Sun className="w-4 h-4 text-[var(--text-muted)]" />
+              : <Sun  className="w-4 h-4 text-[var(--text-muted)]" />
             }
           </button>
 
@@ -89,9 +96,9 @@ export function Header() {
                     <p className="text-xs text-[var(--text-subtle)] truncate">{user.username}</p>
                   </div>
 
-                  <NavItem to="/profile" icon={<User size={15} />} onClick={() => setMenuOpen(false)}>Hồ sơ</NavItem>
-                  <NavItem to="/bookshelf" icon={<BookMarked size={15} />} onClick={() => setMenuOpen(false)}>Tủ truyện</NavItem>
-                  <NavItem to="/settings" icon={<Settings size={15} />} onClick={() => setMenuOpen(false)}>Cài đặt</NavItem>
+                  <NavItem to="/profile"   icon={<User size={15} />}          onClick={() => setMenuOpen(false)}>Hồ sơ</NavItem>
+                  <NavItem to="/bookshelf" icon={<BookMarked size={15} />}    onClick={() => setMenuOpen(false)}>Tủ truyện</NavItem>
+                  <NavItem to="/settings"  icon={<Settings size={15} />}      onClick={() => setMenuOpen(false)}>Cài đặt</NavItem>
 
                   {(user.role === 'author' || user.role === 'admin') && (
                     <NavItem to="/author" icon={<PenTool size={15} />} onClick={() => setMenuOpen(false)}>Quản lý truyện</NavItem>
@@ -105,8 +112,7 @@ export function Header() {
                       onClick={handleLogout}
                       className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
                     >
-                      <LogOut size={15} />
-                      Đăng xuất
+                      <LogOut size={15} /> Đăng xuất
                     </button>
                   </div>
                 </div>
