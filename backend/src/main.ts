@@ -20,6 +20,7 @@ import { commentRoutes } from './modules/comment/comment.routes'
 import { reviewRoutes } from './modules/review/review.routes'
 import { bookshelfRoutes } from './modules/bookshelf/bookshelf.routes'
 import { adminRoutes } from './modules/admin/admin.routes'
+import { ttsRoutes } from './modules/tts/tts.routes'
 
 const app = Fastify({
   logger: {
@@ -94,6 +95,7 @@ async function bootstrap() {
   app.register(reviewRoutes, { prefix: '/api' })
   app.register(bookshelfRoutes, { prefix: '/api' })
   app.register(adminRoutes, { prefix: '/api/admin' })
+  app.register(ttsRoutes, { prefix: '/api/tts' })
 
   // Health check
   app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
