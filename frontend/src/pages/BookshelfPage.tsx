@@ -1,7 +1,7 @@
 // src/pages/BookshelfPage.tsx
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useMyBookshelf, useRemoveFromBookshelf, useMyHistory, useChapterList } from '@/lib/queries'
+import { useMyBookshelf, useRemoveFromBookshelf, useMyHistory } from '@/lib/queries'
 import { Spinner, EmptyState } from '@/components/ui'
 import { BookMarked, BookOpen, Trash2, History, Clock } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/utils'

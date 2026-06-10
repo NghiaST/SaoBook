@@ -1,6 +1,6 @@
 // src/components/layout/Header.tsx
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { BookOpen, Search, Moon, Sun, User, LogOut, Settings, BookMarked, LayoutDashboard, PenTool } from 'lucide-react'
+import { Search, Moon, Sun, User, LogOut, Settings, BookMarked, LayoutDashboard, PenTool } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
 import { useSettingsStore } from '@/store/settings.store'
 import { Avatar, Button } from '@/components/ui'
@@ -11,14 +11,14 @@ import api from '@/lib/api'
 
 export function Header() {
   const { user, isAuthenticated, logout } = useAuthStore()
-  const { theme, updateUI } = useSettingsStore()
+  // Dùng toggleTheme thay vì updateUI để giữ màu đã lưu
+  const { theme, toggleTheme } = useSettingsStore()
   const navigate  = useNavigate()
   const location  = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [search,   setSearch]   = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
 
-  // Chỉ ẩn header khi đang ở trang đọc chương
   const isReaderPage = /\/stories\/.+\/chapters\//.test(location.pathname)
   const scrollHidden = useScrollHide(20)
   const headerHidden = isReaderPage && scrollHidden
@@ -69,10 +69,12 @@ export function Header() {
         </form>
 
         <div className="flex items-center gap-1 ml-auto">
+          {/* toggleTheme giữ màu đã lưu của từng mode */}
           <button
-            onClick={() => updateUI({ theme: theme === 'light' ? 'dark' : 'light' })}
+            onClick={toggleTheme}
             className="btn-ghost p-2 rounded-lg"
             aria-label="Toggle theme"
+            title={theme === 'light' ? 'Chuyển sang chế độ tối' : 'Chuyển sang chế độ sáng'}
           >
             {theme === 'light'
               ? <Moon className="w-4 h-4 text-[var(--text-muted)]" />

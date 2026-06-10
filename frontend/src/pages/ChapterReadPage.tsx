@@ -1,11 +1,12 @@
 // src/pages/ChapterReadPage.tsx
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useChapter, useChapterList, useMarkChapterRead } from '@/lib/queries'
+import { useChapter, useChapterList, useMarkChapterRead, useRVActiveKeys } from '@/lib/queries'
 import { useTTSStore } from '@/store/tts.store'
 import { useSettingsStore } from '@/store/settings.store'
 import { useAuthStore } from '@/store/auth.store'
 import { useScrollHide } from '@/hooks/useScrollHide'
+import { loadRVScript } from '@/features/tts/rv.service'
 import { Spinner } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight, List, Play, Pause, Square } from 'lucide-react'
@@ -17,25 +18,29 @@ export function ChapterReadPage() {
   const chapterId = chapterIdParam ? Number(chapterIdParam) : NaN
   const navigate = useNavigate()
 
-  const { isAuthenticated }                                   = useAuthStore()
-  const { fontSize, lineHeight, fontFamily, bgColor, textColor, readerMaxWidth } = useSettingsStore()
-  const { ttsLanguage, ttsVoice, ttsVoiceName, ttsSpeed, ttsVolume, autoNextChapter, sleepTimerMinutes } = useSettingsStore()
+  const { isAuthenticated }                                                       = useAuthStore()
+  const { fontSize, lineHeight, fontFamily, bgColor, textColor, readerMaxWidth }  = useSettingsStore()
+  const {
+    ttsLanguage, ttsVoice, ttsVoiceName, ttsSpeed, ttsPitch, ttsVolume,
+    ttsMode, autoNextChapter, sleepTimerMinutes,
+  } = useSettingsStore()
 
   const markRead = useMarkChapterRead()
-  const { stop, status, currentParagraphIndex, chapterId: ttsChapterId, play, pause, resume } = useTTSStore()
+  const { stop, status, currentParagraphIndex, chapterId: ttsChapterId, play, pause, resume, setRVKeys } = useTTSStore()
 
   const { data: chapter, isLoading } = useChapter(chapterId)
   const { data: chapters }           = useChapterList(nameId!)
+
+  // Fetch RV active keys (chỉ khi đã đăng nhập và dùng RV mode)
+  const { data: rvKeys } = useRVActiveKeys(isAuthenticated && ttsMode === 'responsivevoice')
 
   const [content,        setContent]        = useState<string | null>(null)
   const [paragraphs,     setParagraphs]     = useState<string[]>([])
   const [contentLoading, setContentLoading] = useState(false)
   const [showTOC,        setShowTOC]        = useState(false)
 
-  // Flag: chapter được chuyển bởi TTS onEnd — không stop() TTS
   const ttsTriggeredNav = useRef(false)
-
-  const paragraphRefs = useRef<(HTMLParagraphElement | null)[]>([])
+  const paragraphRefs   = useRef<(HTMLParagraphElement | null)[]>([])
 
   const isTTSThisChapter = ttsChapterId === chapterId
   const isPlaying        = isTTSThisChapter && status === 'playing'
@@ -44,7 +49,16 @@ export function ChapterReadPage() {
 
   const scrollHidden = useScrollHide(20)
 
-  // ── Navigation ─────────────────────────────────────────────────────────────
+  // ── Load RV keys vào store & script ────────────────────────────────────────
+
+  useEffect(() => {
+    if (!rvKeys || rvKeys.length === 0) return
+    setRVKeys(rvKeys)
+    // Load RV script với key đầu tiên
+    loadRVScript(rvKeys[0]).catch(() => null)
+  }, [rvKeys, setRVKeys])
+
+  // ── Navigation ──────────────────────────────────────────────────────────────
 
   const currentIndex = chapters?.findIndex((c) => c.id === chapterId) ?? -1
   const prevChapter  = currentIndex > 0 ? chapters![currentIndex - 1] : null
@@ -58,14 +72,16 @@ export function ChapterReadPage() {
     if (prevChapter) navigate(`/stories/${nameId}/chapters/${prevChapter.id}`)
   }, [prevChapter, nameId, navigate])
 
-  // ── TTS helpers ────────────────────────────────────────────────────────────
+  // ── TTS helpers ─────────────────────────────────────────────────────────────
 
   const ttsSettings = useCallback(() => ({
-    lang:               ttsLanguage,
-    voice:              ttsVoice,
-    voiceName:          ttsVoiceName,
-    speed:              ttsSpeed,
-    volume:             ttsVolume,
+    mode:              ttsMode,
+    lang:              ttsLanguage,
+    voice:             ttsVoice,
+    voiceName:         ttsVoiceName,
+    speed:             ttsSpeed,
+    pitch:             ttsPitch,
+    volume:            ttsVolume,
     sleepTimerMinutes,
     onEnd: autoNextChapter
       ? () => {
@@ -73,7 +89,7 @@ export function ChapterReadPage() {
           goNext()
         }
       : undefined,
-  }), [ttsLanguage, ttsVoice, ttsVoiceName, ttsSpeed, ttsVolume, sleepTimerMinutes, autoNextChapter, goNext])
+  }), [ttsMode, ttsLanguage, ttsVoice, ttsVoiceName, ttsSpeed, ttsPitch, ttsVolume, sleepTimerMinutes, autoNextChapter, goNext])
 
   const handlePlayPause = () => {
     if (isPlaying) { pause(); return }
@@ -85,7 +101,7 @@ export function ChapterReadPage() {
 
   const handleStop = () => stop()
 
-  // ── Effects ────────────────────────────────────────────────────────────────
+  // ── Effects ─────────────────────────────────────────────────────────────────
 
   // Fetch content
   useEffect(() => {
@@ -100,26 +116,21 @@ export function ChapterReadPage() {
       .finally(() => setContentLoading(false))
   }, [chapter?.contentUrl])
 
-  // Khi chuyển chapter: stop TTS trừ khi do TTS tự chuyển
+  // Khi chuyển chapter
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
     if (ttsTriggeredNav.current) {
       ttsTriggeredNav.current = false
-      // Không stop — để TTS tự tiếp tục sau khi content load xong
     } else {
       stop()
     }
   }, [chapterId])
 
-  // Khi content load xong sau khi TTS tự chuyển chapter → tiếp tục đọc
+  // Tiếp tục đọc sau khi TTS tự chuyển chapter
   useEffect(() => {
     if (!content || !autoNextChapter) return
-    // Nếu TTS đang idle nhưng chapterId khớp với chương vừa navigate tới
-    // và flag ttsTriggeredNav đã được clear → bắt đầu đọc từ đầu
     const { status: s, chapterId: ttsId } = useTTSStore.getState()
     if (s === 'idle' && ttsId !== chapterId && ttsTriggeredNav.current === false) {
-      // Kiểm tra xem lần trước có phải TTS nav không
-      // bằng cách check store: nếu chapterId store khác với current thì đang sau nav
       const prevId = useTTSStore.getState().chapterId
       if (prevId !== null && prevId !== chapterId) {
         play(content, chapterId, ttsSettings())
@@ -149,7 +160,6 @@ export function ChapterReadPage() {
     return () => window.removeEventListener('keydown', handler)
   }, [goNext, goPrev])
 
-  // Click paragraph để jump TTS
   const handleParagraphClick = (index: number) => {
     if (!ttsActive) return
     useTTSStore.getState().jumpToParagraph(index, {
@@ -158,7 +168,7 @@ export function ChapterReadPage() {
     })
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   if (isLoading) return (
     <div className="flex justify-center py-24"><Spinner className="w-8 h-8" /></div>
@@ -174,13 +184,11 @@ export function ChapterReadPage() {
       <div className={cn('reader-topnav', scrollHidden && 'reader-topnav--hidden')}>
         <div className="reader-topnav__inner" style={{ maxWidth: Math.max(readerMaxWidth, 1200) }}>
 
-          {/* Back */}
           <Link to={`/stories/${nameId}`} className="reader-topnav__back">
             ← {chapter.story?.name ?? nameId}
           </Link>
 
           <div className="reader-topnav__actions">
-            {/* TTS play/pause */}
             <button
               onClick={handlePlayPause}
               className={cn('reader-tts-btn', isPlaying || isPaused ? 'reader-tts-btn--stop' : 'reader-tts-btn--play')}
@@ -194,7 +202,6 @@ export function ChapterReadPage() {
               }
             </button>
 
-            {/* TTS stop (chỉ hiện khi đang active) */}
             {ttsActive && (
               <button
                 onClick={handleStop}
@@ -205,29 +212,16 @@ export function ChapterReadPage() {
               </button>
             )}
 
-            {/* Prev */}
-            <button
-              onClick={goPrev}
-              disabled={!prevChapter}
-              className="reader-nav-btn"
-              title="Chương trước (←)"
-            >
+            <button onClick={goPrev} disabled={!prevChapter} className="reader-nav-btn" title="Chương trước (←)">
               <ChevronLeft size={15} />
               <span className="hidden sm:inline">Trước</span>
             </button>
 
-            {/* Next */}
-            <button
-              onClick={goNext}
-              disabled={!nextChapter}
-              className="reader-nav-btn"
-              title="Chương sau (→)"
-            >
+            <button onClick={goNext} disabled={!nextChapter} className="reader-nav-btn" title="Chương sau (→)">
               <span className="hidden sm:inline">Sau</span>
               <ChevronRight size={15} />
             </button>
 
-            {/* TOC */}
             <button
               onClick={() => setShowTOC((v) => !v)}
               className="btn-ghost p-1.5 rounded-lg"
@@ -238,7 +232,6 @@ export function ChapterReadPage() {
           </div>
         </div>
 
-        {/* TOC dropdown */}
         {showTOC && (
           <div className="reader-toc">
             <div className="reader-toc__grid">
@@ -259,10 +252,7 @@ export function ChapterReadPage() {
 
       {/* ── Content ─────────────────────────────────────────────────────── */}
       <div className="reader-content-wrap" style={{ maxWidth: readerMaxWidth }}>
-        <h1 
-          className="reader-title"
-          style={{ color: textColor }}
-        >{chapter.name}</h1>
+        <h1 className="reader-title" style={{ color: textColor }}>{chapter.name}</h1>
 
         {contentLoading ? (
           <div className="flex justify-center py-16"><Spinner /></div>
@@ -299,7 +289,6 @@ export function ChapterReadPage() {
           </div>
         )}
 
-        {/* Bottom nav */}
         <div className="reader-bottom-nav">
           <button onClick={goPrev} disabled={!prevChapter} className="reader-nav-btn">
             <ChevronLeft size={16} /> Chương trước
@@ -314,7 +303,6 @@ export function ChapterReadPage() {
         </div>
       </div>
 
-      {/* ── Mobile FAB: stop TTS khi đang đọc ──────────────────────────── */}
       {ttsActive && (
         <button onClick={handleStop} className="reader-tts-fab reader-tts-fab--stop">
           <Square size={16} /> Dừng đọc

@@ -1,9 +1,9 @@
 /* src/styles/globals.css */
+@import './reader.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import './reader.css';
 
 @layer base {
   :root {

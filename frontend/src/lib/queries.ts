@@ -2,8 +2,9 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import api from './api'
 import type {
-  User, Story, Chapter, Comment, Review,
+  User, Story, Chapter, Comment, MyComment, Review,
   BookshelfItem, ReadingHistoryItem, UserSettings, LoginResponse,
+  RvApiKey,
 } from '@/types'
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -89,7 +90,7 @@ export const useUpdateSettings = () => {
 export const useMyComments = () =>
   useQuery({
     queryKey: ['my-comments'],
-    queryFn: () => api.get<Comment[]>('/users/me/comments').then((r) => r.data),
+    queryFn: () => api.get<MyComment[]>('/users/me/comments').then((r) => r.data),
   })
 
 export const useMyBookshelf = () =>
@@ -315,5 +316,49 @@ export const useDeleteUser = () => {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/admin/users/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
+  })
+}
+
+// ── TTS / ResponsiveVoice Keys ────────────────────────────────────────────────
+
+/** Lấy active keys — dùng trong ChapterReadPage để load vào rv.service */
+export const useRVActiveKeys = (enabled = true) =>
+  useQuery({
+    queryKey: ['rv-keys-active'],
+    queryFn: () => api.get<{ keys: string[] }>('/tts/keys/active').then((r) => r.data.keys),
+    enabled,
+    staleTime: 5 * 60 * 1000, // 5 phút cache
+  })
+
+/** Admin: full list */
+export const useAdminRVKeys = () =>
+  useQuery({
+    queryKey: ['admin-rv-keys'],
+    queryFn: () => api.get<RvApiKey[]>('/tts/keys').then((r) => r.data),
+  })
+
+export const useCreateRVKey = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { label: string; key: string }) =>
+      api.post<RvApiKey>('/tts/keys', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-rv-keys'] }),
+  })
+}
+
+export const useUpdateRVKey = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; label?: string; key?: string; active?: boolean }) =>
+      api.patch<RvApiKey>(`/tts/keys/${id}`, data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-rv-keys'] }),
+  })
+}
+
+export const useDeleteRVKey = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/tts/keys/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-rv-keys'] }),
   })
 }

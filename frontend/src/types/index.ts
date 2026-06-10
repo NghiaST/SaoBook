@@ -4,14 +4,17 @@ export type Role = 'user' | 'author' | 'admin'
 export type TTSLanguage = 'vi' | 'en' | 'zh'
 export type TTSVoice = 'male' | 'female'
 export type UITheme = 'light' | 'dark'
+export type TTSMode = 'speechsynthesis' | 'responsivevoice'
 
 export interface TTSSettings {
   ttsLanguage: TTSLanguage
   ttsVoice: TTSVoice
   ttsSpeed: number
   ttsVolume: number
+  ttsPitch: number
   autoNextChapter: boolean
   sleepTimerMinutes: number
+  ttsMode: TTSMode
 }
 
 export interface UISettings {
@@ -123,4 +126,15 @@ export interface AuthTokens {
 
 export interface LoginResponse extends AuthTokens {
   user: User
+}
+
+// ── ResponsiveVoice ───────────────────────────────────────────────────────────
+
+export interface RvApiKey {
+  id: string
+  label: string
+  key: string
+  active: boolean
+  createdAt: string
+  updatedAt: string
 }

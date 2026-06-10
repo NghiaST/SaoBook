@@ -3,10 +3,10 @@ import { useEffect, useState } from 'react'
 import { useSettingsStore, THEME_BG_OPTIONS, FONT_FAMILY_OPTIONS } from '@/store/settings.store'
 import { useUpdateSettings } from '@/lib/queries'
 import { useAuthStore } from '@/store/auth.store'
-import { CheckCircle2, Moon, Sun } from 'lucide-react'
+import { CheckCircle2, Moon, Sun, RotateCcw, Mic, Speaker } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// ── Lấy danh sách voice tiếng Việt từ SpeechSynthesis ────────────────────────
+// ── Voices từ SpeechSynthesis ─────────────────────────────────────────────────
 
 function useAvailableVoices(lang: string) {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
@@ -52,7 +52,7 @@ function ColorPresetPicker() {
             {bgColor === p.bg && (
               <CheckCircle2
                 size={14}
-                className="absolute top-1 right-1 text-accent"
+                className="absolute top-1 right-1"
                 style={{ color: p.text }}
               />
             )}
@@ -67,6 +67,46 @@ function ColorPresetPicker() {
   )
 }
 
+// ── Slider Row ────────────────────────────────────────────────────────────────
+
+function SliderRow({
+  label, value, min, max, step, display, onChange,
+  leftLabel, rightLabel,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  display: string
+  onChange: (v: number) => void
+  leftLabel?: string
+  rightLabel?: string
+}) {
+  return (
+    <div>
+      <label className="label">
+        {label}: <span className="font-mono">{display}</span>
+      </label>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="w-full accent-[var(--accent)]"
+      />
+      {(leftLabel || rightLabel) && (
+        <div className="flex justify-between text-xs text-[var(--text-subtle)]">
+          <span>{leftLabel}</span>
+          <span>{rightLabel}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── SettingsPage ──────────────────────────────────────────────────────────────
 
 export function SettingsPage() {
@@ -76,27 +116,39 @@ export function SettingsPage() {
   const voices = useAvailableVoices(settings.ttsLanguage)
 
   const save = () => {
-    if (isAuthenticated) {
-      updateSettings.mutate({
-        theme: settings.theme,
-        bgColor: settings.bgColor,
-        textColor: settings.textColor,
-        fontFamily: settings.fontFamily,
-        fontSize: settings.fontSize,
-        lineHeight: settings.lineHeight,
-        ttsLanguage: settings.ttsLanguage,
-        ttsVoice: settings.ttsVoice,
-        ttsSpeed: settings.ttsSpeed,
-        ttsVolume: settings.ttsVolume,
-        autoNextChapter: settings.autoNextChapter,
-        sleepTimerMinutes: settings.sleepTimerMinutes,
-      })
-    }
+    if (!isAuthenticated) return
+    updateSettings.mutate({
+      theme:             settings.theme,
+      bgColor:           settings.bgColor,
+      textColor:         settings.textColor,
+      fontFamily:        settings.fontFamily,
+      fontSize:          settings.fontSize,
+      lineHeight:        settings.lineHeight,
+      ttsLanguage:       settings.ttsLanguage,
+      ttsVoice:          settings.ttsVoice,
+      ttsSpeed:          settings.ttsSpeed,
+      ttsVolume:         settings.ttsVolume,
+      autoNextChapter:   settings.autoNextChapter,
+      sleepTimerMinutes: settings.sleepTimerMinutes,
+    })
   }
 
   return (
     <div className="page-container py-8 max-w-2xl">
-      <h1 className="section-title">Cài đặt</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="section-title mb-0">Cài đặt</h1>
+        {/* Reset toàn bộ */}
+        <button
+          onClick={() => {
+            if (confirm('Đặt lại tất cả cài đặt về mặc định?')) settings.resetAll()
+          }}
+          className="flex items-center gap-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--accent)] border border-[var(--border)] hover:border-[var(--accent)] px-3 py-1.5 rounded-lg transition-all"
+          title="Đặt lại toàn bộ cài đặt"
+        >
+          <RotateCcw size={13} />
+          Đặt lại mặc định
+        </button>
+      </div>
 
       {/* ── Giao diện đọc ─────────────────────────────────────────── */}
       <div className="card p-6 mb-6 space-y-5">
@@ -110,8 +162,7 @@ export function SettingsPage() {
               <button
                 key={t}
                 onClick={() => {
-                  const preset = THEME_BG_OPTIONS[t][0]
-                  settings.updateUI({ theme: t, bgColor: preset.bg, textColor: preset.text })
+                  if (settings.theme !== t) settings.toggleTheme()
                 }}
                 className={cn(
                   'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-ui border transition-all',
@@ -125,9 +176,11 @@ export function SettingsPage() {
               </button>
             ))}
           </div>
+          <p className="text-xs text-[var(--text-subtle)] mt-1.5">
+            Màu nền/chữ được lưu riêng cho mỗi chế độ — toggle sẽ khôi phục màu đã chỉnh trước đó.
+          </p>
         </div>
 
-        {/* Color presets */}
         <ColorPresetPicker />
 
         {/* Manual color pickers */}
@@ -172,55 +225,26 @@ export function SettingsPage() {
           </select>
         </div>
 
-        {/* Font size */}
-        <div>
-          <label className="label">Cỡ chữ: {settings.fontSize}px</label>
-          <input
-            type="range"
-            min="12"
-            max="32"
-            value={settings.fontSize}
-            onChange={(e) => settings.updateUI({ fontSize: parseInt(e.target.value) })}
-            className="w-full accent-[var(--accent)]"
-          />
-          <div className="flex justify-between text-xs text-[var(--text-subtle)]">
-            <span>12px</span><span>32px</span>
-          </div>
-        </div>
+        <SliderRow
+          label="Cỡ chữ" value={settings.fontSize} min={12} max={32} step={1}
+          display={`${settings.fontSize}px`}
+          onChange={(v) => settings.updateUI({ fontSize: v })}
+          leftLabel="12px" rightLabel="32px"
+        />
 
-        {/* Line height */}
-        <div>
-          <label className="label">Giãn dòng: {settings.lineHeight.toFixed(1)}</label>
-          <input
-            type="range"
-            min="1.2"
-            max="3"
-            step="0.1"
-            value={settings.lineHeight}
-            onChange={(e) => settings.updateUI({ lineHeight: parseFloat(e.target.value) })}
-            className="w-full accent-[var(--accent)]"
-          />
-          <div className="flex justify-between text-xs text-[var(--text-subtle)]">
-            <span>1.2</span><span>3.0</span>
-          </div>
-        </div>
+        <SliderRow
+          label="Giãn dòng" value={settings.lineHeight} min={1.2} max={3} step={0.1}
+          display={settings.lineHeight.toFixed(1)}
+          onChange={(v) => settings.updateUI({ lineHeight: v })}
+          leftLabel="1.2" rightLabel="3.0"
+        />
 
-        {/* Reader max width */}
-        <div>
-          <label className="label">Chiều rộng đọc: {settings.readerMaxWidth}px</label>
-          <input
-            type="range"
-            min="500"
-            max="1600"
-            step="20"
-            value={settings.readerMaxWidth}
-            onChange={(e) => settings.updateUI({ readerMaxWidth: parseInt(e.target.value) })}
-            className="w-full accent-[var(--accent)]"
-          />
-          <div className="flex justify-between text-xs text-[var(--text-subtle)]">
-            <span>500px (hẹp)</span><span>1200px (rộng)</span>
-          </div>
-        </div>
+        <SliderRow
+          label="Chiều rộng đọc" value={settings.readerMaxWidth} min={500} max={1600} step={20}
+          display={`${settings.readerMaxWidth}px`}
+          onChange={(v) => settings.updateUI({ readerMaxWidth: v })}
+          leftLabel="500px (hẹp)" rightLabel="1600px (rộng)"
+        />
 
         {/* Preview */}
         <div>
@@ -228,11 +252,11 @@ export function SettingsPage() {
           <div
             className="rounded-xl p-5 border border-[var(--border)] transition-all"
             style={{
-              background: settings.bgColor,
-              color: settings.textColor,
-              fontFamily: `'${settings.fontFamily}', Georgia, serif`,
-              fontSize: settings.fontSize,
-              lineHeight: settings.lineHeight,
+              background:  settings.bgColor,
+              color:       settings.textColor,
+              fontFamily:  `'${settings.fontFamily}', Georgia, serif`,
+              fontSize:    settings.fontSize,
+              lineHeight:  settings.lineHeight,
             }}
           >
             <p style={{ textIndent: '2em' }}>
@@ -245,6 +269,31 @@ export function SettingsPage() {
       {/* ── TTS ──────────────────────────────────────────────────── */}
       <div className="card p-6 space-y-5">
         <h2 className="font-semibold text-[var(--text)] font-ui">Nghe truyện (TTS)</h2>
+
+        {/* TTS Mode */}
+        <div>
+          <label className="label">Công nghệ TTS</label>
+          <div className="flex gap-2">
+            {([
+              { value: 'speechsynthesis', label: 'SpeechSynthesis', icon: <Mic size={13} />, desc: 'Giọng có sẵn trên trình duyệt' },
+              { value: 'responsivevoice', label: 'ResponsiveVoice', icon: <Speaker size={13} />, desc: 'Giọng chất lượng cao hơn, cần API key' },
+            ] as const).map((m) => (
+              <button
+                key={m.value}
+                onClick={() => settings.updateTTS({ ttsMode: m.value })}
+                className={cn(
+                  'flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg text-sm border transition-all',
+                  settings.ttsMode === m.value
+                    ? 'border-accent bg-[var(--accent-bg)] text-[var(--accent)]'
+                    : 'border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--text-muted)]',
+                )}
+              >
+                <span className="flex items-center gap-1.5 font-medium">{m.icon}{m.label}</span>
+                <span className="text-[10px] opacity-70">{m.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Language */}
         <div>
@@ -262,81 +311,65 @@ export function SettingsPage() {
           </select>
         </div>
 
-        {/* Voice picker — từ SpeechSynthesis */}
-        <div>
-          <label className="label">
-            Giọng đọc{' '}
-            <span className="text-xs font-normal text-[var(--text-subtle)]">
-              ({voices.length} giọng khả dụng)
-            </span>
-          </label>
-          {voices.length > 0 ? (
-            <select
-              value={settings.ttsVoiceName || ''}
-              onChange={(e) => settings.updateTTS({ ttsVoiceName: e.target.value })}
-              className="input"
-            >
-              <option value="">-- Tự động chọn --</option>
-              {voices.map((v) => (
-                <option key={v.name} value={v.name}>
-                  {v.name} ({v.lang}){v.localService ? '' : ' ☁️'}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p className="text-xs text-[var(--text-subtle)] mt-1">
-              Trình duyệt chưa tải xong danh sách giọng. Thử tải lại trang.
-            </p>
-          )}
-          {/* Fallback gender */}
-          <div className="flex gap-2 mt-2">
-            {(['female', 'male'] as const).map((g) => (
-              <button
-                key={g}
-                onClick={() => settings.updateTTS({ ttsVoice: g })}
-                className={cn(
-                  'text-xs px-3 py-1.5 rounded-lg border transition-all',
-                  settings.ttsVoice === g
-                    ? 'border-accent bg-accent text-white'
-                    : 'border-[var(--border)] text-[var(--text-muted)]',
-                )}
+        {/* Voice picker — chỉ hiện khi dùng SpeechSynthesis */}
+        {settings.ttsMode === 'speechsynthesis' && (
+          <div>
+            <label className="label">
+              Giọng đọc{' '}
+              <span className="text-xs font-normal text-[var(--text-subtle)]">
+                ({voices.length} giọng khả dụng)
+              </span>
+            </label>
+            {voices.length > 0 ? (
+              <select
+                value={settings.ttsVoiceName || ''}
+                onChange={(e) => settings.updateTTS({ ttsVoiceName: e.target.value })}
+                className="input"
               >
-                {g === 'female' ? '♀ Nữ' : '♂ Nam'} (ưu tiên)
-              </button>
-            ))}
+                <option value="">-- Tự động chọn --</option>
+                {voices.map((v) => (
+                  <option key={v.name} value={v.name}>
+                    {v.name} ({v.lang}){v.localService ? '' : ' ☁️'}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-xs text-[var(--text-subtle)] mt-1">
+                Trình duyệt chưa tải xong danh sách giọng. Thử tải lại trang.
+              </p>
+            )}
           </div>
-        </div>
+        )}
+
+        {/* ResponsiveVoice — note */}
+        {settings.ttsMode === 'responsivevoice' && (
+          <div className="text-xs bg-[var(--bg-alt)] rounded-lg p-3 text-[var(--text-muted)] leading-relaxed">
+            <strong>ResponsiveVoice</strong> cần API key được cấu hình bởi admin. Giọng sẽ tự chọn theo ngôn ngữ đã chọn. Đảm bảo admin đã thêm ít nhất 1 key active trong trang Admin → TTS Keys.
+          </div>
+        )}
 
         {/* Speed */}
-        <div>
-          <label className="label">Tốc độ: {settings.ttsSpeed.toFixed(1)}x</label>
-          <input
-            type="range"
-            min="0.5"
-            max="5"
-            step="0.1"
-            value={settings.ttsSpeed}
-            onChange={(e) => settings.updateTTS({ ttsSpeed: parseFloat(e.target.value) })}
-            className="w-full accent-[var(--accent)]"
-          />
-          <div className="flex justify-between text-xs text-[var(--text-subtle)]">
-            <span>0.5x (chậm)</span><span>3.0x (nhanh)</span>
-          </div>
-        </div>
+        <SliderRow
+          label="Tốc độ" value={settings.ttsSpeed} min={0.5} max={2} step={0.05}
+          display={`${settings.ttsSpeed.toFixed(2)}x`}
+          onChange={(v) => settings.updateTTS({ ttsSpeed: v })}
+          leftLabel="0.5x (chậm)" rightLabel="2.0x (nhanh)"
+        />
+
+        {/* Pitch */}
+        <SliderRow
+          label="Cao độ (Pitch)" value={settings.ttsPitch} min={0} max={2} step={0.1}
+          display={settings.ttsPitch.toFixed(1)}
+          onChange={(v) => settings.updateTTS({ ttsPitch: v })}
+          leftLabel="0 (trầm)" rightLabel="2.0 (cao)"
+        />
 
         {/* Volume */}
-        <div>
-          <label className="label">Âm lượng: {Math.round(settings.ttsVolume * 100)}%</label>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={settings.ttsVolume}
-            onChange={(e) => settings.updateTTS({ ttsVolume: parseFloat(e.target.value) })}
-            className="w-full accent-[var(--accent)]"
-          />
-        </div>
+        <SliderRow
+          label="Âm lượng" value={settings.ttsVolume} min={0} max={1} step={0.05}
+          display={`${Math.round(settings.ttsVolume * 100)}%`}
+          onChange={(v) => settings.updateTTS({ ttsVolume: v })}
+        />
 
         {/* Auto next */}
         <div className="flex items-center gap-3">
@@ -364,7 +397,6 @@ export function SettingsPage() {
               onChange={(e) => settings.updateTTS({ sleepTimerMinutes: parseInt(e.target.value) || 0 })}
               className="input w-24"
             />
-            {/* Quick presets */}
             <div className="flex gap-1">
               {[0, 15, 30, 60, 90].map((m) => (
                 <button
@@ -384,7 +416,6 @@ export function SettingsPage() {
           </div>
         </div>
 
-        {/* Save to cloud */}
         {isAuthenticated && (
           <button
             onClick={save}
