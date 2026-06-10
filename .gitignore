@@ -1,0 +1,19 @@
+# Dependencies and build output
+node_modules/
+dist/
+build/
+.vite/
+
+# Local environment and editor files
+.env
+.env.*
+!.env.example
+.vscode/settings.json
+
+# Generated local snapshots
+tmp_backend.txt
+tmp_frontend.txt
+
+# Logs and local tooling output
+*.log
+coverage/
