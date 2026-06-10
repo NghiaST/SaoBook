@@ -2,12 +2,11 @@
 
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -221,4 +220,15 @@ model ChapterReadLog {
 
   @@unique([userId, chapterId])
   @@map("chapter_read_logs")
+}
+
+model RvApiKey {
+  id        String   @id @default(uuid())
+  label     String   // tên gợi nhớ, vd: "Key #1"
+  key       String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("rv_api_keys")
 }

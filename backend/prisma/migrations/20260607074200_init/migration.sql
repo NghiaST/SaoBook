@@ -60,7 +60,7 @@ CREATE TABLE "password_resets" (
 
 -- CreateTable
 CREATE TABLE "stories" (
-    "id" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
     "nameId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "posterUrl" TEXT,
@@ -75,11 +75,11 @@ CREATE TABLE "stories" (
 
 -- CreateTable
 CREATE TABLE "chapters" (
-    "id" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
     "order" INTEGER NOT NULL,
     "contentUrl" TEXT NOT NULL,
-    "storyId" TEXT NOT NULL,
+    "storyId" INTEGER NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -90,8 +90,8 @@ CREATE TABLE "chapters" (
 CREATE TABLE "comments" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "storyId" TEXT NOT NULL,
-    "chapterId" TEXT,
+    "storyId" INTEGER NOT NULL,
+    "chapterId" INTEGER,
     "parentCommentId" TEXT,
     "content" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -104,7 +104,7 @@ CREATE TABLE "comments" (
 CREATE TABLE "reviews" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "storyId" TEXT NOT NULL,
+    "storyId" INTEGER NOT NULL,
     "rating" INTEGER NOT NULL,
     "content" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -117,7 +117,7 @@ CREATE TABLE "reviews" (
 CREATE TABLE "bookshelves" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "storyId" TEXT NOT NULL,
+    "storyId" INTEGER NOT NULL,
     "note" TEXT,
     "savedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -128,8 +128,8 @@ CREATE TABLE "bookshelves" (
 CREATE TABLE "reading_histories" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "storyId" TEXT NOT NULL,
-    "lastChapterId" TEXT NOT NULL,
+    "storyId" INTEGER NOT NULL,
+    "lastChapterId" INTEGER NOT NULL,
     "lastReadAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "reading_histories_pkey" PRIMARY KEY ("id")
@@ -139,11 +139,23 @@ CREATE TABLE "reading_histories" (
 CREATE TABLE "chapter_read_logs" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "chapterId" TEXT NOT NULL,
-    "storyId" TEXT NOT NULL,
+    "chapterId" INTEGER NOT NULL,
+    "storyId" INTEGER NOT NULL,
     "readAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "chapter_read_logs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "rv_api_keys" (
+    "id" TEXT NOT NULL,
+    "label" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "rv_api_keys_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -175,6 +187,9 @@ CREATE UNIQUE INDEX "reading_histories_userId_storyId_key" ON "reading_histories
 
 -- CreateIndex
 CREATE UNIQUE INDEX "chapter_read_logs_userId_chapterId_key" ON "chapter_read_logs"("userId", "chapterId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "rv_api_keys_key_key" ON "rv_api_keys"("key");
 
 -- AddForeignKey
 ALTER TABLE "user_settings" ADD CONSTRAINT "user_settings_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
