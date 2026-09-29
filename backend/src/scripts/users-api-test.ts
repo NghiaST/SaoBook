@@ -19,13 +19,17 @@ async function request(
   options: { method: string; body?: unknown; token?: string },
 ): Promise<ApiResponse> {
   const headers: Record<string, string> = {}
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json'
+  if (options.body !== undefined && !(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json'
+  }
   if (options.token) headers.Authorization = `Bearer ${options.token}`
 
   const response = await fetch(`${apiBase}${path}`, {
     method: options.method,
     headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    body: options.body === undefined
+      ? undefined
+      : options.body instanceof FormData ? options.body : JSON.stringify(options.body),
   })
   const text = await response.text()
 
@@ -68,6 +72,39 @@ async function main() {
     throw new Error('get profile: returned user does not match the registered account')
   }
 
+  const invalidAvatarUrl = await request('/users/me/avatar-from-url', {
+    method: 'POST',
+    token: accessToken,
+    body: { url: 'not-a-url' },
+  })
+  expectStatus(invalidAvatarUrl, 422, 'invalid avatar URL')
+
+  const validAvatarUrl = await request('/users/me/avatar-from-url', {
+    method: 'POST',
+    token: accessToken,
+    body: { url: 'https://avatars.githubusercontent.com/u/69393345' },
+  })
+  expectStatus(validAvatarUrl, 200, 'valid avatar URL')
+
+  const avatar = new FormData()
+  avatar.append(
+    'file',
+    new Blob([
+      Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/xcAAt8B9B2R3oAAAAAASUVORK5CYII=', 'base64'),
+    ], { type: 'image/png' }),
+    'avatar.png',
+  )
+
+  const uploadedAvatar = await request('/users/me/avatar', {
+    method: 'POST',
+    token: accessToken,
+    body: avatar,
+  })
+  expectStatus(uploadedAvatar, 200, 'upload avatar')
+  if (typeof uploadedAvatar.body.avatarUrl !== 'string' || uploadedAvatar.body.avatarUrl.length === 0) {
+    throw new Error('upload avatar: response does not contain an avatar URL')
+  }
+
   const updatedProfile = await request('/users/me', {
     method: 'PATCH',
     token: accessToken,
@@ -99,20 +136,6 @@ async function main() {
   const history = await request('/users/me/history', { method: 'GET', token: accessToken })
   expectStatus(history, 200, 'get history')
   expectArray(history, 'get history')
-
-  const invalidAvatarUrl = await request('/users/me/avatar-from-url', {
-    method: 'POST',
-    token: accessToken,
-    body: { url: 'not-a-url' },
-  })
-  expectStatus(invalidAvatarUrl, 422, 'invalid avatar URL')
-
-  const validAvatarUrl = await request('/users/me/avatar-from-url', {
-    method: 'POST',
-    token: accessToken,
-    body: { url: 'https://avatars.githubusercontent.com/u/69393345' },
-  })
-  expectStatus(validAvatarUrl, 200, 'valid avatar URL')
 
   const wrongPassword = await request('/users/me/password', {
     method: 'PATCH',

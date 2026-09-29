@@ -13,8 +13,8 @@ export async function setupSwagger(app: FastifyInstance) {
         version: '1.0.0',
       },
       servers: [
-        { url: 'http://localhost:3000',                description: 'Development' },
-        { url: 'https://your-backend.onrender.com',    description: 'Production'  },
+        { url: 'http://localhost:3000',           description: 'Development' },
+        { url: 'https://saobook.onrender.com',    description: 'Production'  },
       ],
       tags: [
         { name: 'Auth',      description: 'Register, login, token refresh, password recovery' },

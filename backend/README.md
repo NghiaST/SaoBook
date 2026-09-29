@@ -38,31 +38,157 @@ Base URL: `http://localhost:3000`
 `T` means string, `I` integer, `N` number, `B` boolean, `D` ISO date-time,
 `U` URI, and `UUID` string identifier. `?` means optional. `[]` means array.
 
-### Shared types
+### Shared Types
+
+The following types are shared across the frontend and backend.
+
+#### Type Notation
+
+| Symbol | Meaning                   |
+| ------ | ------------------------- |
+| `T`    | `string`                  |
+| `I`    | `integer`                 |
+| `N`    | `number`                  |
+| `B`    | `boolean`                 |
+| `D`    | `datetime`                |
+| `UUID` | UUID string               |
+| `?`    | Optional / nullable field |
+
+#### Common Types
 
 ```text
-Error                 { error: T, message: T }
-TokenResponse         { user: User, accessToken: T, refreshToken: T }
-User                  { id: UUID, username: T, email: T, name: T,
-                        bio: T?, avatarUrl: T?, role: user|author|admin, createdAt: D }
-UserSettings          { id: UUID, userId: UUID, ttsLanguage: vi|en|zh,
-                        ttsVoice: male|female, ttsSpeed: N, ttsVolume: N,
-                        autoNextChapter: B, sleepTimerMinutes: I,
-                        theme: light|dark, bgColor: T, textColor: T,
-                        fontFamily: T, fontSize: I, lineHeight: N }
-Story                 { id: I, nameId: T, name: T, posterUrl: T?,
-                        description: T?, sourceNote: T?, authorId: UUID,
-                        createdAt: D, updatedAt: D, avgRating: N?, author: object?,
-                        _count: { chapters: I, reviews: I }? }
-Chapter               { id: I, name: T, order: I, contentUrl: T,
-                        storyId: I, createdAt: D, updatedAt: D }
-Comment               { id: UUID, userId: UUID, storyId: I, chapterId: I?,
-                        parentCommentId: UUID?, content: T, createdAt: D, user: object }
-Review                { id: UUID, userId: UUID, storyId: I, rating: I(1..5),
-                        content: T?, createdAt: D, user: object }
-Key                   { id: UUID, userId: UUID?, label: T, key: T,
-                        active: B, createdAt: D, updatedAt: D }
+Error
+{
+  error: T
+  message: T
+}
+
+TokenResponse
+{
+  user: User
+  accessToken: T
+  refreshToken: T
+}
+
+User
+{
+  id: UUID
+  username: T
+  email: T
+  name: T
+  bio: T?
+  avatarUrl: T?
+  role: user | author | admin
+  createdAt: D
+}
+
+UserSettings
+{
+  id: UUID
+  userId: UUID
+
+  ttsLanguage: vi | en | zh
+  ttsVoice: male | female
+  ttsSpeed: N
+  ttsVolume: N
+
+  autoNextChapter: B
+  sleepTimerMinutes: I
+
+  theme: light | dark
+  bgColor: T
+  textColor: T
+  fontFamily: T
+  fontSize: I
+  lineHeight: N
+}
+
+Story
+{
+  id: I
+  nameId: T
+  name: T
+  posterUrl: T?
+  description: T?
+  sourceNote: T?
+
+  authorId: UUID
+  author: object?
+
+  createdAt: D
+  updatedAt: D
+
+  avgRating: N?
+
+  _count: {
+    chapters: I
+    reviews: I
+  }?
+}
+
+Chapter
+{
+  id: I
+  name: T
+  order: I
+  contentUrl: T
+
+  storyId: I
+
+  createdAt: D
+  updatedAt: D
+}
+
+Comment
+{
+  id: UUID
+  userId: UUID
+  storyId: I
+  chapterId: I?
+  parentCommentId: UUID?
+
+  content: T
+  createdAt: D
+
+  user: object
+}
+
+Review
+{
+  id: UUID
+  userId: UUID
+  storyId: I
+
+  rating: I (1..5)
+  content: T?
+
+  createdAt: D
+
+  user: object
+}
+
+Key
+{
+  id: UUID
+  userId: UUID?
+
+  label: T
+  key: T
+  active: B
+
+  createdAt: D
+  updatedAt: D
+}
 ```
+
+#### Notes
+
+* `User` and `UserSettings` use `UUID` identifiers.
+* `Story` and `Chapter` use integer identifiers.
+* `Comment` supports nested replies through `parentCommentId`.
+* `Review.rating` must be an integer from `1` to `5`.
+* `Story._count` contains optional aggregate counts for chapters and reviews.
+* `author`, `user`, and similar nested objects are represented as `object` here and should use dedicated types when their response shape is defined.
 
 ### Health
 
@@ -162,9 +288,3 @@ Key                   { id: UUID, userId: UUID?, label: T, key: T,
 | `POST /api/tts/keys` | Body: `label: T`, `key: T` | `201 Key`; `422 Error` |
 | `PATCH /api/tts/keys/:id` | Path: `id: UUID`; body: `label?: T`, `key?: T`, `active?: B` | `200 Key`; `403/404 Error` |
 | `DELETE /api/tts/keys/:id` | Path: `id: UUID` | `204`; `403/404 Error` |
-
-
-| Method and path | Request parameters | Response |
-| --- | --- | --- |
-| `POST /api/upload/image` | Multipart: `file: binary` | `{ url: T }` |
-| `POST /api/upload/image-from-url` | Body: `url: U` | `{ url: T }` |
