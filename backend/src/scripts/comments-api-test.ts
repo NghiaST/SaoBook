@@ -63,6 +63,11 @@ async function main() {
     storyId = createdStory.body.id
     if (!storyId) throw new Error('create story: id missing')
 
+    const blankComment = await request(`/stories/${storyId}/comments`, {
+      method: 'POST', token: userToken, body: { content: '   ' },
+    })
+    expectStatus(blankComment, 422, 'reject blank comment')
+
     const comment = await request(`/stories/${storyId}/comments`, {
       method: 'POST', token: userToken, body: { content: `Comment ${testId}` },
     })

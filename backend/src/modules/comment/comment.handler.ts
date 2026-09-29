@@ -60,13 +60,42 @@ export async function createComment(
   const { content, chapterId, parentCommentId } = request.body as {
     content: string; chapterId?: string | number; parentCommentId?: string
   }
+  const trimmedContent = content?.trim()
+  if (!trimmedContent) throw new ValidationError('Comment content is required')
+
   const parsedChapterId = parseOptionalChapterId(chapterId)
+  const normalizedParentId = parentCommentId?.trim() || null
 
   const story = await prisma.story.findUnique({ where: { id: storyId } })
   if (!story) throw new NotFoundError('Story')
 
+  if (parsedChapterId !== null) {
+    const chapter = await prisma.chapter.findFirst({
+      where: { id: parsedChapterId, storyId },
+      select: { id: true },
+    })
+    if (!chapter) throw new NotFoundError('Chapter')
+  }
+
+  if (normalizedParentId) {
+    const parent = await prisma.comment.findUnique({
+      where: { id: normalizedParentId },
+      select: { storyId: true, chapterId: true },
+    })
+    if (!parent) throw new NotFoundError('Parent comment')
+    if (parent.storyId !== storyId || parent.chapterId !== parsedChapterId) {
+      throw new ValidationError('Parent comment must belong to the same story and chapter')
+    }
+  }
+
   const comment = await prisma.comment.create({
-    data: { userId, storyId, content, chapterId: parsedChapterId, parentCommentId },
+    data: {
+      userId,
+      storyId,
+      content: trimmedContent,
+      chapterId: parsedChapterId,
+      parentCommentId: normalizedParentId,
+    },
     include: {
       user: { select: { id: true, username: true, name: true, avatarUrl: true } },
     },
