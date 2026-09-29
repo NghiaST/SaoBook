@@ -28,7 +28,7 @@ export async function uploadChapterContent(
   chapterId?: string | number,
 ): Promise<string> {
   const id = chapterId ?? randomUUID()
-  const key = `chapters/${storyId}/${id}.txt`
+  const key = `chapters/${storyId}/${chapterId}.txt`
 
   await client.send(
     new PutObjectCommand({
