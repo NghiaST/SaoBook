@@ -9,10 +9,10 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
 export const api = axios.create({
   baseURL: BASE_URL,
   withCredentials: false,
-  // KHÔNG đặt Content-Type mặc định.
-  // Axios sẽ tự đặt:
-  // - application/json cho object thông thường
-  // - multipart/form-data; boundary=... cho FormData
+  // Do NOT set a default Content-Type.
+  // Axios will automatically set:
+  // - application/json for regular objects
+  // - multipart/form-data; boundary=... for FormData
 })
 
 // ── Attach access token ───────────────────────────────────────────────────────
@@ -24,7 +24,8 @@ api.interceptors.request.use(
       config.headers.set('Authorization', `Bearer ${token}`)
     }
 
-    // Nếu gửi FormData, phải xóa Content-Type để browser tự thêm boundary.
+    // If the request contains FormData, remove Content-Type
+    // so the browser can automatically add the correct boundary.
     if (config.data instanceof FormData) {
       config.headers.delete('Content-Type')
     }
@@ -51,7 +52,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true
 
-      // Nếu đang refresh token, chờ token mới
+      // If a token refresh is already in progress, wait for the new token.
       if (isRefreshing) {
         return new Promise((resolve) => {
           waitQueue.push((token) => {
@@ -76,17 +77,18 @@ api.interceptors.response.use(
         localStorage.setItem('accessToken', data.accessToken)
         localStorage.setItem('refreshToken', data.refreshToken)
 
-        // Thực thi các request đang chờ
+        // Retry all requests that were waiting for the new token.
         waitQueue.forEach((callback) => callback(data.accessToken))
         waitQueue = []
 
-        // Retry request hiện tại
+        // Retry the original request.
         original.headers.set(
           'Authorization',
           `Bearer ${data.accessToken}`
         )
 
-        // Nếu request gốc là FormData, xóa Content-Type
+        // If the original request contains FormData, remove Content-Type
+        // so the browser can automatically add the correct boundary.
         if (original.data instanceof FormData) {
           original.headers.delete('Content-Type')
         }
