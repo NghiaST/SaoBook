@@ -51,8 +51,8 @@ export async function deleteKey(
   return reply.code(204).send()
 }
 
-// ── Public: lấy danh sách key active để FE dùng round-robin ──────────────────
-// Chỉ trả về key string (không trả id/label) để tránh lộ metadata
+// ── Public: list active keys for the frontend to use round-robin ─────────────
+// Return only key strings, not IDs or labels, to avoid exposing metadata
 
 export async function getActiveKeys(_req: FastifyRequest, reply: FastifyReply) {
   const keys = await prisma.rvApiKey.findMany({

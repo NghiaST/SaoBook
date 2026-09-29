@@ -42,7 +42,7 @@ export async function userRoutes(app: FastifyInstance) {
       ...tag, ...bearer,
       summary: 'Upload avatar image (multipart file, max 5 MB)',
       consumes: ['multipart/form-data'],
-      // Không khai báo body properties — để Fastify không validate multipart fields
+      // Do not declare body properties — so Fastify won't validate multipart fields
       response: {
         200: UserSchema,
         422: { description: 'Not an image or too large', ...ErrorSchema },

@@ -170,7 +170,7 @@ export async function createStory(
 
   const { buffer, mime } = posterResult
 
-  // Tạo story trước để lấy ID
+  // Create the story first to get its ID
   let story = await prisma.story.create({
     data: {
       name,
@@ -181,14 +181,14 @@ export async function createStory(
     },
   })
 
-  // Upload lên R2
+  // Upload to R2
   const posterUrl = await uploadPoster(
     buffer,
     mime,
     story.id,
   )
 
-  // Cập nhật posterUrl
+  // Update posterUrl
   story = await prisma.story.update({
     where: { id: story.id },
     data: { posterUrl },

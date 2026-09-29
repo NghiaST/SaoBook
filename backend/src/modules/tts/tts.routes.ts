@@ -29,8 +29,8 @@ const KeySchema = {
 }
 
 export async function ttsRoutes(app: FastifyInstance) {
-  // ── Public: FE lấy active keys để gọi ResponsiveVoice ──────────────────────
-  // Yêu cầu đăng nhập để tránh scraping key vô tội vạ
+  // ── Public: frontend fetches active keys for ResponsiveVoice ────────────────
+  // Require authentication to prevent excessive key scraping
   app.get('/keys/active', {
     ...auth,
     schema: {
@@ -47,7 +47,7 @@ export async function ttsRoutes(app: FastifyInstance) {
     },
   }, handler.getActiveKeys)
 
-  // ── Admin: quản lý keys ─────────────────────────────────────────────────────
+  // ── Admin: manage keys ─────────────────────────────────────────────────────
   app.get('/keys', {
     ...admin,
     schema: {
