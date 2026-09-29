@@ -8,7 +8,7 @@ export async function setupSwagger(app: FastifyInstance) {
     openapi: {
       openapi: '3.0.0',
       info: {
-        title: 'Story App API',
+        title: 'SaoBook API',
         description: 'Backend API for the story reading app — auth, stories, chapters, TTS settings, reviews, comments, bookshelf, and admin.',
         version: '1.0.0',
       },

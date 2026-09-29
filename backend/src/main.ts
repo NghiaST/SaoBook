@@ -78,10 +78,12 @@ async function bootstrap() {
       })
     }
 
+    const message = error instanceof Error ? error.message : 'Something went wrong'
+
     app.log.error(error)
     return reply.code(500).send({
       error: 'INTERNAL_SERVER_ERROR',
-      message: config.isDev ? error.message : 'Something went wrong',
+      message: config.isDev ? message : 'Something went wrong',
     })
   })
 
