@@ -41,6 +41,7 @@ export function ChapterReadPage() {
 
   const ttsTriggeredNav = useRef(false)
   const paragraphRefs   = useRef<(HTMLParagraphElement | null)[]>([])
+  const completedChapter = useRef<number | null>(null)
 
   const isTTSThisChapter = ttsChapterId === chapterId
   const isPlaying        = isTTSThisChapter && status === 'playing'
@@ -138,10 +139,29 @@ export function ChapterReadPage() {
     }
   }, [content])
 
-  // Mark as read
+  // Reset completion state when navigating to another chapter.
   useEffect(() => {
-    if (isAuthenticated && Number.isFinite(chapterId)) markRead.mutate(chapterId)
-  }, [chapterId, isAuthenticated])
+    completedChapter.current = null
+    paragraphRefs.current = []
+  }, [chapterId])
+
+  // Mark the chapter complete once its final paragraph is visible.
+  useEffect(() => {
+    if (!isAuthenticated || !Number.isFinite(chapterId) || paragraphs.length === 0) return
+
+    const lastParagraph = paragraphRefs.current[paragraphs.length - 1]
+    if (!lastParagraph) return
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && completedChapter.current !== chapterId) {
+        completedChapter.current = chapterId
+        markRead.mutate(chapterId)
+      }
+    }, { threshold: 0.75 })
+
+    observer.observe(lastParagraph)
+    return () => observer.disconnect()
+  }, [chapterId, isAuthenticated, markRead, paragraphs.length])
 
   // Scroll to active paragraph
   useEffect(() => {
