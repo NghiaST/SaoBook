@@ -90,17 +90,7 @@ UserSettings
   ttsLanguage: vi | en | zh
   ttsVoice: male | female
   ttsSpeed: N
-  ttsVolume: N
-
   autoNextChapter: B
-  sleepTimerMinutes: I
-
-  theme: light | dark
-  bgColor: T
-  textColor: T
-  fontFamily: T
-  fontSize: I
-  lineHeight: N
 }
 
 Story
@@ -216,7 +206,7 @@ Key
 | `POST /api/users/me/avatar` | Multipart: `file: binary` | `200 User`; `422 Error` |
 | `POST /api/users/me/avatar-from-url` | Body: `url: U` | `200 User`; `422 Error` |
 | `PATCH /api/users/me/password` | Body: `currentPassword: T`, `newPassword: T` | `200 { message: T }`; `401 Error` |
-| `PUT /api/users/me/settings` | Body: `ttsLanguage?: vi|en|zh`, `ttsVoice?: male|female`, `ttsSpeed?: N`, `ttsVolume?: N`, `autoNextChapter?: B`, `sleepTimerMinutes?: I`, `theme?: light|dark`, `bgColor?: T`, `textColor?: T`, `fontFamily?: T`, `fontSize?: I`, `lineHeight?: N` | `200 UserSettings` |
+| `PUT /api/users/me/settings` | Body: `ttsLanguage?: vi|en|zh`, `ttsVoice?: male|female`, `ttsSpeed?: N`, `autoNextChapter?: B` | `200 UserSettings` |
 | `GET /api/users/me/comments` | None | `200 Comment[]` |
 | `GET /api/users/me/bookshelf` | None | `200 object[]` |
 | `GET /api/users/me/history` | None | `200 object[]` |

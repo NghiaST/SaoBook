@@ -28,11 +28,6 @@ enum TTSVoice {
   female
 }
 
-enum UITheme {
-  light
-  dark
-}
-
 enum RvApiKeyStatus {
   personal
   public
@@ -62,7 +57,6 @@ model User {
   readingHistories ReadingHistory[]
   chapterReadLogs  ChapterReadLog[]
   passwordResets   PasswordReset[]
-  rvApiKeys        RvApiKey[]
 
   @@map("users")
 }
@@ -76,17 +70,8 @@ model UserSettings {
   ttsLanguage       TTSLanguage @default(vi)
   ttsVoice          TTSVoice    @default(female)
   ttsSpeed          Float       @default(1.0)
-  ttsVolume         Float       @default(1.0)
   autoNextChapter   Boolean     @default(false)
-  sleepTimerMinutes Int         @default(0)
-
-  // UI
-  theme      UITheme @default(light)
-  bgColor    String  @default("#ffffff")
-  textColor  String  @default("#1a1a1a")
-  fontFamily String  @default("sans-serif")
-  fontSize   Int     @default(16)
-  lineHeight Float   @default(1.6)
+  rvApiKeys         RvApiKey[]
 
   @@map("user_settings")
 }
@@ -230,14 +215,14 @@ model ChapterReadLog {
 }
 
 model RvApiKey {
-  id        String   @id @default(uuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  label     String   // tên gợi nhớ, vd: "Key #1"
-  key       String   @unique
-  status    RvApiKeyStatus
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String        @id @default(uuid())
+  userSettingsId String?
+  userSettings   UserSettings? @relation(fields: [userSettingsId], references: [id], onDelete: Cascade)
+  label          String        // tên gợi nhớ, vd: "Key #1"
+  key            String        @unique
+  status         RvApiKeyStatus
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@map("rv_api_keys")
 }

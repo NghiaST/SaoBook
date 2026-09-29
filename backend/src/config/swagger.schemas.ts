@@ -105,15 +105,7 @@ export const UserSettingsSchema = {
     ttsLanguage:        { type: 'string', enum: ['vi', 'en', 'zh'] },
     ttsVoice:           { type: 'string', enum: ['male', 'female'] },
     ttsSpeed:           { type: 'number' },
-    ttsVolume:          { type: 'number' },
     autoNextChapter:    { type: 'boolean' },
-    sleepTimerMinutes:  { type: 'integer' },
-    theme:              { type: 'string', enum: ['light', 'dark'] },
-    bgColor:            { type: 'string' },
-    textColor:          { type: 'string' },
-    fontFamily:         { type: 'string' },
-    fontSize:           { type: 'integer' },
-    lineHeight:         { type: 'number' },
   },
 }
 

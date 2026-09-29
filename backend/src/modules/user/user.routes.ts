@@ -87,22 +87,14 @@ export async function userRoutes(app: FastifyInstance) {
     ...a,
     schema: {
       ...tag, ...bearer,
-      summary: 'Update TTS + UI settings',
+      summary: 'Update TTS settings',
       body: {
         type: 'object',
         properties: {
           ttsLanguage:       { type: 'string', enum: ['vi', 'en', 'zh'] },
           ttsVoice:          { type: 'string', enum: ['male', 'female'] },
           ttsSpeed:          { type: 'number', minimum: 0.5, maximum: 5 },
-          ttsVolume:         { type: 'number', minimum: 0, maximum: 1 },
           autoNextChapter:   { type: 'boolean' },
-          sleepTimerMinutes: { type: 'integer' },
-          theme:             { type: 'string', enum: ['light', 'dark'] },
-          bgColor:           { type: 'string' },
-          textColor:         { type: 'string' },
-          fontFamily:        { type: 'string' },
-          fontSize:          { type: 'integer' },
-          lineHeight:        { type: 'number' },
         },
       },
       response: { 200: UserSettingsSchema },

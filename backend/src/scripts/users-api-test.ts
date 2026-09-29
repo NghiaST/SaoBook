@@ -118,10 +118,10 @@ async function main() {
   const settings = await request('/users/me/settings', {
     method: 'PUT',
     token: accessToken,
-    body: { theme: 'dark', fontSize: 18, ttsSpeed: 1.25, autoNextChapter: true },
+    body: { ttsSpeed: 1.25, autoNextChapter: true },
   })
   expectStatus(settings, 200, 'update settings')
-  if (settings.body.theme !== 'dark' || settings.body.fontSize !== 18) {
+  if (settings.body.ttsSpeed !== 1.25 || settings.body.autoNextChapter !== true) {
     throw new Error(`update settings: response does not contain the updated values: ${JSON.stringify(settings.body)}`)
   }
 

@@ -81,7 +81,7 @@ async function main() {
     })
     expectStatus(createdUserKey, 201, 'create user TTS key')
     userKeyId = createdUserKey.body.id
-    if (!userKeyId || createdUserKey.body.userId !== userAuth.userId || createdUserKey.body.status !== 'personal') {
+    if (!userKeyId || createdUserKey.body.userSettingsId === null || createdUserKey.body.status !== 'personal') {
       throw new Error('create user TTS key: ownership was not returned')
     }
 

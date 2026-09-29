@@ -19,7 +19,7 @@ const KeySchema = {
   type: 'object',
   properties: {
     id:        { type: 'string' },
-    userId:    { type: 'string', nullable: true, description: 'Owner ID; null for an admin-managed global key' },
+    userSettingsId: { type: 'string', nullable: true, description: 'Owner settings ID; null for an admin-managed global key' },
     label:     { type: 'string' },
     key:       { type: 'string' },
     status:    { type: 'string', enum: ['personal', 'public', 'hidden'] },
