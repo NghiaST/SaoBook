@@ -10,10 +10,6 @@ build/
 !.env.example
 .vscode/settings.json
 
-# Generated local snapshots
-tmp_backend.txt
-tmp_frontend.txt
-
 # Logs and local tooling output
 *.log
 coverage/

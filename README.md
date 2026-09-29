@@ -21,14 +21,48 @@ Project documentation is organized under the docs folder so the architectural no
 ## Repository Layout
 
 ```text
-docs/
-  ClassDiagramAndUseCase.md
-  Stack.md
-frontend/   React/Vite client application
-backend/    Fastify API, Prisma schema, migrations, and seed data
+project-root/
+├── README.md
+├── docs/
+│   ├── ClassDiagramAndUseCase.md
+│   └── Stack.md
+├── backend/
+│   ├── README.md
+│   ├── prisma/
+│   │   ├── schema.prisma
+│   │   └── migrations/
+│   ├── src/
+│   │   ├── common/
+│   │   ├── config/
+│   │   ├── modules/
+│   │   ├── prisma/
+│   │   ├── scripts/
+│   │   ├── storage/
+│   │   └── main.ts
+│   ├── package.json
+│   ├── render.yaml
+│   ├── tsconfig.json
+│   └── .env.example
+├── frontend/
+│   ├── public/
+│   ├── src/
+│   │   ├── assets/
+│   │   ├── components/
+│   │   ├── features/
+│   │   ├── hooks/
+│   │   ├── lib/
+│   │   ├── pages/
+│   │   ├── router/
+│   │   ├── store/
+│   │   ├── styles/
+│   │   └── types/
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── tsconfig.json
+│   └── vercel.json
+└── .gitignore
 ```
-
-The frontend is organized by route-level pages and feature modules. The backend is organized by API modules such as auth, users, stories, chapters, comments, reviews, bookshelf, admin, and TTS.
 
 ## Prerequisites
 

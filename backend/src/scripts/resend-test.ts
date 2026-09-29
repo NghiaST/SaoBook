@@ -26,8 +26,8 @@ async function main() {
     body: JSON.stringify({
       from,
       to,
-      subject: 'SBook Resend API test',
-      html: '<p>This is a direct Resend API test from SBook.</p>',
+      subject: 'SaoBook Resend API test',
+      html: '<p>This is a direct Resend API test from SaoBook.</p>',
     }),
   })
 
