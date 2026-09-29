@@ -54,15 +54,6 @@ export async function changeRole(
   return reply.send(updated)
 }
 
-export async function suspendUser(
-  request: FastifyRequest<{ Params: { id: string } }>,
-  reply: FastifyReply,
-) {
-  // Simplest approach: mark suspended via a role downgrade or a dedicated field.
-  // For now we return a placeholder — add a `suspended` boolean to the schema if needed.
-  return reply.send({ message: 'Suspend feature: add `suspended: Boolean` to User schema' })
-}
-
 export async function deleteUser(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply,

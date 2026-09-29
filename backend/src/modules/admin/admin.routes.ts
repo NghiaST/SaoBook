@@ -36,16 +36,6 @@ export async function adminRoutes(app: FastifyInstance) {
     },
   }, handler.changeRole)
 
-  app.patch<IdParam>('/users/:id/suspend', {
-    ...admin,
-    schema: {
-      ...tag, ...bearer,
-      summary: 'Suspend user (placeholder)',
-      params: idParam,
-      response: { 200: { type: 'object' } },
-    },
-  }, handler.suspendUser)
-
   app.delete<IdParam>('/users/:id', {
     ...admin,
     schema: {
