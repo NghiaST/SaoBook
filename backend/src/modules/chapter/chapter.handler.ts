@@ -144,7 +144,27 @@ export async function deleteChapter(
   if (chapter.story.authorId !== userId && role !== 'admin') throw new ForbiddenError()
 
   await deleteFile(chapter.contentUrl).catch(() => null)
-  await prisma.chapter.delete({ where: { id: chapter.id } })
+  await prisma.$transaction(async (tx) => {
+    await tx.chapter.delete({ where: { id: chapter.id } })
+
+    const remaining = await tx.chapter.findMany({
+      where: { storyId: chapter.storyId },
+      orderBy: [{ order: 'asc' }, { id: 'asc' }],
+      select: { id: true },
+    })
+
+    await Promise.all(
+      remaining.map((item, index) =>
+        tx.chapter.update({ where: { id: item.id }, data: { order: -(index + 1) } }),
+      ),
+    )
+
+    await Promise.all(
+      remaining.map((item, index) =>
+        tx.chapter.update({ where: { id: item.id }, data: { order: index + 1 } }),
+      ),
+    )
+  })
 
   return reply.code(204).send()
 }

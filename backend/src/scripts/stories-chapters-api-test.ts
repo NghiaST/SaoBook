@@ -141,6 +141,22 @@ async function main() {
       throw new Error('list chapters: expected three ordered chapters')
     }
 
+    const deletedChapter = await request(`/chapters/${chapterIds[1]}`, {
+      method: 'DELETE',
+      token: accessToken,
+    })
+    expectStatus(deletedChapter, 204, 'delete chapter')
+
+    const reindexedChapters = await request(`/stories/${storySlug}/chapters`, { method: 'GET' })
+    expectStatus(reindexedChapters, 200, 'list chapters after delete')
+    if (
+      reindexedChapters.body.length !== 2 ||
+      reindexedChapters.body[0].order !== 1 ||
+      reindexedChapters.body[1].order !== 2
+    ) {
+      throw new Error('list chapters after delete: expected contiguous chapter order')
+    }
+
     const chapter = await request(`/chapters/${chapterIds[0]}`, { method: 'GET' })
     expectStatus(chapter, 200, 'get chapter')
     if (chapter.body.id !== chapterIds[0] || chapter.body.storyId !== storyId) {
