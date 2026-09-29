@@ -24,6 +24,7 @@ export async function setupSwagger(app: FastifyInstance) {
         { name: 'Comments',  description: 'Threaded comments on stories and chapters' },
         { name: 'Reviews',   description: 'Star ratings and written reviews' },
         { name: 'Bookshelf', description: 'Save stories with personal notes' },
+        { name: 'TTS',       description: 'Per-user and global ResponsiveVoice API keys' },
         { name: 'Admin',     description: 'User management and platform statistics' },
       ],
       components: {

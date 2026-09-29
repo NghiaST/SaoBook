@@ -2,6 +2,7 @@
 import { FastifyInstance } from 'fastify'
 import { requireAuth } from '../../common/middleware/auth'
 import * as handler from './tts.handler'
+import { ErrorSchema } from '../../config/swagger.schemas'
 
 const tag    = { tags: ['TTS'] }
 const bearer = { security: [{ bearerAuth: [] }] }
@@ -18,7 +19,7 @@ const KeySchema = {
   type: 'object',
   properties: {
     id:        { type: 'string' },
-    userId:    { type: 'string', nullable: true },
+    userId:    { type: 'string', nullable: true, description: 'Owner ID; null for an admin-managed global key' },
     label:     { type: 'string' },
     key:       { type: 'string' },
     active:    { type: 'boolean' },
@@ -34,7 +35,8 @@ export async function ttsRoutes(app: FastifyInstance) {
     ...auth,
     schema: {
       ...tag, ...bearer,
-      summary: 'Get active RV API keys (authenticated users)',
+      summary: 'Get active RV API keys for the current user',
+      description: 'Returns active global keys and keys owned by the authenticated user.',
       response: {
         200: {
           type: 'object',
@@ -42,6 +44,7 @@ export async function ttsRoutes(app: FastifyInstance) {
             keys: { type: 'array', items: { type: 'string' } },
           },
         },
+        401: { description: 'Authentication required', ...ErrorSchema },
       },
     },
   }, handler.getActiveKeys)
@@ -51,8 +54,12 @@ export async function ttsRoutes(app: FastifyInstance) {
     ...auth,
     schema: {
       ...tag, ...bearer,
-      summary: 'List all RV API keys (admin)',
-      response: { 200: { type: 'array', items: KeySchema } },
+      summary: 'List available RV API keys',
+      description: 'Regular users receive their own and global keys. Admins receive all keys.',
+      response: {
+        200: { type: 'array', items: KeySchema },
+        401: { description: 'Authentication required', ...ErrorSchema },
+      },
     },
   }, handler.listKeys)
 
@@ -60,7 +67,8 @@ export async function ttsRoutes(app: FastifyInstance) {
     ...auth,
     schema: {
       ...tag, ...bearer,
-      summary: 'Create RV API key (admin)',
+      summary: 'Create an RV API key',
+      description: 'The key belongs to the authenticated user. Admin-created keys are global.',
       body: {
         type: 'object',
         required: ['label', 'key'],
@@ -69,7 +77,11 @@ export async function ttsRoutes(app: FastifyInstance) {
           key:   { type: 'string' },
         },
       },
-      response: { 201: KeySchema },
+      response: {
+        201: KeySchema,
+        401: { description: 'Authentication required', ...ErrorSchema },
+        422: { description: 'Invalid key data', ...ErrorSchema },
+      },
     },
   }, handler.createKey)
 
@@ -77,7 +89,8 @@ export async function ttsRoutes(app: FastifyInstance) {
     ...auth,
     schema: {
       ...tag, ...bearer,
-      summary: 'Update RV API key (admin)',
+      summary: 'Update an RV API key',
+      description: 'Users can update their own keys. Admins can update any key.',
       params: idParam,
       body: {
         type: 'object',
@@ -87,7 +100,12 @@ export async function ttsRoutes(app: FastifyInstance) {
           active: { type: 'boolean' },
         },
       },
-      response: { 200: KeySchema },
+      response: {
+        200: KeySchema,
+        401: { description: 'Authentication required', ...ErrorSchema },
+        403: { description: 'Key belongs to another user', ...ErrorSchema },
+        404: { description: 'Key not found', ...ErrorSchema },
+      },
     },
   }, handler.updateKey)
 
@@ -95,9 +113,15 @@ export async function ttsRoutes(app: FastifyInstance) {
     ...auth,
     schema: {
       ...tag, ...bearer,
-      summary: 'Delete RV API key (admin)',
+      summary: 'Delete an RV API key',
+      description: 'Users can delete their own keys. Admins can delete any key.',
       params: idParam,
-      response: { 204: { type: 'null' } },
+      response: {
+        204: { type: 'null' },
+        401: { description: 'Authentication required', ...ErrorSchema },
+        403: { description: 'Key belongs to another user', ...ErrorSchema },
+        404: { description: 'Key not found', ...ErrorSchema },
+      },
     },
   }, handler.deleteKey)
 }
