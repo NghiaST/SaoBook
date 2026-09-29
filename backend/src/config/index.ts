@@ -14,10 +14,6 @@ export const config = {
   port: parseInt(optional('PORT', '3000')),
   host: optional('HOST', '0.0.0.0'),
 
-  swagger: {
-    isEnabled: optional('IS_SWAGGER', 'true') === 'true',
-  },
-
   db: {
     url: required('DATABASE_URL'),
     directUrl: required('DIRECT_URL'),
