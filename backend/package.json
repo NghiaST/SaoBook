@@ -1,5 +1,5 @@
 {
-  "name": "story-app-backend",
+  "name": "saobook-backend",
   "version": "1.0.0",
   "description": "Story reading app backend — Fastify + Prisma + PostgreSQL",
   "main": "dist/main.js",
@@ -55,5 +55,9 @@
     "prisma": "^7.8.0",
     "tsx": "^4.16.0",
     "typescript": "^5.5.0"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.2",
+    "mysql2": "^3.24.4"
   }
 }
