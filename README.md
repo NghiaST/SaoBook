@@ -1,6 +1,6 @@
-# SBook
+# SaoBook
 
-SBook is a full-stack story reading application. It provides story and chapter management, authentication, reading history, bookshelves, comments, reviews, text-to-speech controls, and separate author/admin workflows.
+SaoBook is a full-stack story reading application. It provides story and chapter management, authentication, reading history, bookshelves, comments, reviews, text-to-speech controls, and separate author/admin workflows.
 
 ## Stack
 
@@ -11,14 +11,21 @@ SBook is a full-stack story reading application. It provides story and chapter m
 - **Email:** Resend
 - **API documentation:** Swagger UI in development
 
+## Documentation
+
+Project documentation is organized under the docs folder so the architectural notes, stack summary, and implementation context are easy to find.
+
+- [docs/ClassDiagramAndUseCase.md](docs/ClassDiagramAndUseCase.md) — current domain model and use-case specification
+- [docs/Stack.md](docs/Stack.md) — technology stack summary
+
 ## Repository Layout
 
 ```text
+docs/
+  ClassDiagramAndUseCase.md
+  Stack.md
 frontend/   React/Vite client application
 backend/    Fastify API, Prisma schema, migrations, and seed data
-ClassDiagramAndUseCase.md
-            Domain and use-case design notes
-Stack.md    Original technology stack notes
 ```
 
 The frontend is organized by route-level pages and feature modules. The backend is organized by API modules such as auth, users, stories, chapters, comments, reviews, bookshelf, admin, and TTS.
