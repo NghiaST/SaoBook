@@ -2,9 +2,10 @@
 import { useState } from 'react'
 import { useAdminUsers, useAdminStats, useChangeUserRole, useDeleteUser } from '@/lib/queries'
 import { Spinner, Badge, Button } from '@/components/ui'
-import { Users, BookOpen, MessageSquare, Star, TrendingUp, Eye } from 'lucide-react'
+import { Users, BookOpen, MessageSquare, Star, TrendingUp, Eye, KeyRound } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import type { Role } from '@/types'
+import { RVKeysPanel } from '@/features/admin/RVKeysPanel'
 
 const ROLES: Role[] = ['user', 'author', 'admin']
 const ROLE_LABELS: Record<Role, string> = { user: 'Người dùng', author: 'Tác giả', admin: 'Admin' }
@@ -30,7 +31,7 @@ function StatCard({ icon, label, value, sub }: {
 }
 
 export function AdminPage() {
-  const [tab, setTab] = useState<'stats' | 'users'>('stats')
+  const [tab, setTab] = useState<'stats' | 'users' | 'rv-keys'>('stats')
   const [q, setQ] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [page, setPage] = useState(1)
@@ -47,12 +48,12 @@ export function AdminPage() {
 
       {/* Tabs */}
       <div className="border-b border-[var(--border)] flex gap-1 mb-8">
-        {(['stats', 'users'] as const).map((t) => (
+        {(['stats', 'users', 'rv-keys'] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-4 py-2.5 text-sm font-ui font-medium transition-colors border-b-2 -mb-px ${
               tab === t ? 'border-accent text-accent' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'
             }`}>
-            {t === 'stats' ? '📊 Thống kê' : '👥 Người dùng'}
+            {t === 'stats' ? '📊 Thống kê' : t === 'users' ? '👥 Người dùng' : <><KeyRound size={14} className="inline mr-1" /> RV Keys</>}
           </button>
         ))}
       </div>
@@ -222,6 +223,8 @@ export function AdminPage() {
           )}
         </>
       )}
+
+      {tab === 'rv-keys' && <RVKeysPanel />}
     </div>
   )
 }
