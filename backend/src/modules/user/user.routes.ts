@@ -4,7 +4,7 @@ import * as handler from './user.handler'
 import { requireAuth } from '../../common/middleware/auth'
 import {
   UserSchema, UpdateProfileBody, ChangePasswordBody,
-  ErrorSchema, CommentSchema,
+  ErrorSchema, CommentSchema, UserSettingsSchema,
 } from '../../config/swagger.schemas'
 
 const tag    = { tags: ['Users'] }
@@ -105,7 +105,7 @@ export async function userRoutes(app: FastifyInstance) {
           lineHeight:        { type: 'number' },
         },
       },
-      response: { 200: { type: 'object', description: 'Updated settings' } },
+      response: { 200: UserSettingsSchema },
     },
   }, handler.updateSettings)
 

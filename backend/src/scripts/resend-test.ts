@@ -2,7 +2,7 @@ import 'dotenv/config'
 
 const apiKey = process.env.RESEND_API_KEY
 const from = process.env.RESEND_EMAIL_FROM
-const to = process.env.RESEND_TEST_TO
+const to = process.env.RESEND_TEST_TO ?? "example@gmail.com"
 
 if (!apiKey) {
   throw new Error('Missing RESEND_API_KEY in env')

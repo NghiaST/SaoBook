@@ -36,7 +36,7 @@ export const config = {
 
   resend: {
     apiKey: required('RESEND_API_KEY'),
-    from: optional('RESEND_EMAIL_FROM', 'SaoBook'),
+    from: optional('RESEND_EMAIL_FROM', 'SaoBook <noreply@resend.dev>'),
   },
 
   cors: {

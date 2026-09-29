@@ -97,6 +97,26 @@ export const UserSchema = {
   },
 }
 
+export const UserSettingsSchema = {
+  type: 'object',
+  properties: {
+    id:                 { type: 'string' },
+    userId:             { type: 'string' },
+    ttsLanguage:        { type: 'string', enum: ['vi', 'en', 'zh'] },
+    ttsVoice:           { type: 'string', enum: ['male', 'female'] },
+    ttsSpeed:           { type: 'number' },
+    ttsVolume:          { type: 'number' },
+    autoNextChapter:    { type: 'boolean' },
+    sleepTimerMinutes:  { type: 'integer' },
+    theme:              { type: 'string', enum: ['light', 'dark'] },
+    bgColor:            { type: 'string' },
+    textColor:          { type: 'string' },
+    fontFamily:         { type: 'string' },
+    fontSize:           { type: 'integer' },
+    lineHeight:         { type: 'number' },
+  },
+}
+
 export const UpdateProfileBody = {
   type: 'object',
   properties: {
