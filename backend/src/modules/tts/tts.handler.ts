@@ -22,7 +22,12 @@ export async function createKey(request: FastifyRequest, reply: FastifyReply) {
   if (!label || !key) throw new ValidationError('label and key are required')
 
   const created = await prisma.rvApiKey.create({
-    data: { label, key, userId: role === 'admin' ? null : userId },
+    data: {
+      label,
+      key,
+      userId: role === 'admin' ? null : userId,
+      status: role === 'admin' ? 'public' : 'personal',
+    },
   })
   return reply.code(201).send(created)
 }
@@ -33,7 +38,7 @@ export async function updateKey(
 ) {
   const { id: userId, role } = request.user as AuthUser
   const { id } = request.params
-  const body = request.body as { label?: string; key?: string; active?: boolean }
+  const body = request.body as { label?: string; key?: string; status?: 'personal' | 'public' | 'hidden' }
 
   const existing = await prisma.rvApiKey.findUnique({ where: { id } })
   if (!existing) throw new NotFoundError('RvApiKey')
@@ -60,13 +65,18 @@ export async function deleteKey(
   return reply.code(204).send()
 }
 
-// ── Public: list active keys for the frontend to use round-robin ─────────────
+// ── Public: list visible keys for the frontend to use round-robin ────────────
 // Return only key strings, not IDs or labels, to avoid exposing metadata
 
 export async function getActiveKeys(request: FastifyRequest, reply: FastifyReply) {
   const { id: userId } = request.user as AuthUser
   const keys = await prisma.rvApiKey.findMany({
-    where: { active: true, OR: [{ userId }, { userId: null }] },
+    where: {
+      OR: [
+        { status: 'public' },
+        { status: 'personal', userId },
+      ],
+    },
     select: { key: true },
     orderBy: { createdAt: 'asc' },
   })

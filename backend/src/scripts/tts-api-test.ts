@@ -65,7 +65,7 @@ async function main() {
     expectStatus(created, 201, 'create TTS key')
     keyId = created.body.id
     if (!keyId) throw new Error('create TTS key: id missing')
-    if (created.body.label !== label || created.body.key !== key || created.body.active !== true) {
+    if (created.body.label !== label || created.body.key !== key || created.body.status !== 'public') {
       throw new Error('create TTS key: response does not match the created key')
     }
 
@@ -81,15 +81,15 @@ async function main() {
     })
     expectStatus(createdUserKey, 201, 'create user TTS key')
     userKeyId = createdUserKey.body.id
-    if (!userKeyId || createdUserKey.body.userId !== userAuth.userId) {
+    if (!userKeyId || createdUserKey.body.userId !== userAuth.userId || createdUserKey.body.status !== 'personal') {
       throw new Error('create user TTS key: ownership was not returned')
     }
 
     const updated = await request(`/tts/keys/${keyId}`, {
-      method: 'PATCH', token: adminToken, body: { label: `${label} Updated`, active: false },
+      method: 'PATCH', token: adminToken, body: { label: `${label} Updated`, status: 'hidden' },
     })
     expectStatus(updated, 200, 'update TTS key')
-    if (updated.body.label !== `${label} Updated` || updated.body.active !== false) {
+    if (updated.body.label !== `${label} Updated` || updated.body.status !== 'hidden') {
       throw new Error('update TTS key: values were not updated')
     }
 
@@ -103,7 +103,7 @@ async function main() {
     }
 
     const enabled = await request(`/tts/keys/${keyId}`, {
-      method: 'PATCH', token: adminToken, body: { active: true },
+      method: 'PATCH', token: adminToken, body: { status: 'public' },
     })
     expectStatus(enabled, 200, 'enable TTS key')
 

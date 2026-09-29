@@ -174,7 +174,7 @@ Key
 
   label: T
   key: T
-  active: B
+  status: personal|public|hidden
 
   createdAt: D
   updatedAt: D
@@ -286,5 +286,5 @@ Key
 | `GET /api/tts/keys/active` | None | `200 { keys: T[] }` |
 | `GET /api/tts/keys` | None | `200 Key[]` |
 | `POST /api/tts/keys` | Body: `label: T`, `key: T` | `201 Key`; `422 Error` |
-| `PATCH /api/tts/keys/:id` | Path: `id: UUID`; body: `label?: T`, `key?: T`, `active?: B` | `200 Key`; `403/404 Error` |
+| `PATCH /api/tts/keys/:id` | Path: `id: UUID`; body: `label?: T`, `key?: T`, `status?: personal|public|hidden` | `200 Key`; `403/404 Error` |
 | `DELETE /api/tts/keys/:id` | Path: `id: UUID` | `204`; `403/404 Error` |

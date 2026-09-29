@@ -22,21 +22,21 @@ const KeySchema = {
     userId:    { type: 'string', nullable: true, description: 'Owner ID; null for an admin-managed global key' },
     label:     { type: 'string' },
     key:       { type: 'string' },
-    active:    { type: 'boolean' },
+    status:    { type: 'string', enum: ['personal', 'public', 'hidden'] },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
   },
 }
 
 export async function ttsRoutes(app: FastifyInstance) {
-  // ── Public: frontend fetches active keys for ResponsiveVoice ────────────────
+  // ── Public: frontend fetches visible keys for ResponsiveVoice ──────────────
   // Require authentication to prevent excessive key scraping
   app.get('/keys/active', {
     ...auth,
     schema: {
       ...tag, ...bearer,
-      summary: 'Get active RV API keys for the current user',
-      description: 'Returns active global keys and keys owned by the authenticated user.',
+      summary: 'Get visible RV API keys for the current user',
+      description: 'Returns public keys and personal keys owned by the authenticated user.',
       response: {
         200: {
           type: 'object',
@@ -97,7 +97,7 @@ export async function ttsRoutes(app: FastifyInstance) {
         properties: {
           label:  { type: 'string' },
           key:    { type: 'string' },
-          active: { type: 'boolean' },
+          status: { type: 'string', enum: ['personal', 'public', 'hidden'] },
         },
       },
       response: {
