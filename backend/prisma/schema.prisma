@@ -56,6 +56,7 @@ model User {
   readingHistories ReadingHistory[]
   chapterReadLogs  ChapterReadLog[]
   passwordResets   PasswordReset[]
+  rvApiKeys        RvApiKey[]
 
   @@map("users")
 }
@@ -224,6 +225,8 @@ model ChapterReadLog {
 
 model RvApiKey {
   id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   label     String   // tên gợi nhớ, vd: "Key #1"
   key       String   @unique
   active    Boolean  @default(true)

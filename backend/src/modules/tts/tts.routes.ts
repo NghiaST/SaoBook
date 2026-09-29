@@ -1,12 +1,10 @@
 // src/modules/tts/tts.routes.ts
 import { FastifyInstance } from 'fastify'
-import { requireRole } from '../../common/middleware/auth'
 import { requireAuth } from '../../common/middleware/auth'
 import * as handler from './tts.handler'
 
 const tag    = { tags: ['TTS'] }
 const bearer = { security: [{ bearerAuth: [] }] }
-const admin  = { preHandler: [requireRole('admin')] }
 const auth   = { preHandler: [requireAuth] }
 
 const idParam = {
@@ -20,6 +18,7 @@ const KeySchema = {
   type: 'object',
   properties: {
     id:        { type: 'string' },
+    userId:    { type: 'string', nullable: true },
     label:     { type: 'string' },
     key:       { type: 'string' },
     active:    { type: 'boolean' },
@@ -47,9 +46,9 @@ export async function ttsRoutes(app: FastifyInstance) {
     },
   }, handler.getActiveKeys)
 
-  // ── Admin: manage keys ─────────────────────────────────────────────────────
+  // ── Authenticated users manage their own keys; admins manage all keys ──────
   app.get('/keys', {
-    ...admin,
+    ...auth,
     schema: {
       ...tag, ...bearer,
       summary: 'List all RV API keys (admin)',
@@ -58,7 +57,7 @@ export async function ttsRoutes(app: FastifyInstance) {
   }, handler.listKeys)
 
   app.post('/keys', {
-    ...admin,
+    ...auth,
     schema: {
       ...tag, ...bearer,
       summary: 'Create RV API key (admin)',
@@ -75,7 +74,7 @@ export async function ttsRoutes(app: FastifyInstance) {
   }, handler.createKey)
 
   app.patch<IdParam>('/keys/:id', {
-    ...admin,
+    ...auth,
     schema: {
       ...tag, ...bearer,
       summary: 'Update RV API key (admin)',
@@ -93,7 +92,7 @@ export async function ttsRoutes(app: FastifyInstance) {
   }, handler.updateKey)
 
   app.delete<IdParam>('/keys/:id', {
-    ...admin,
+    ...auth,
     schema: {
       ...tag, ...bearer,
       summary: 'Delete RV API key (admin)',

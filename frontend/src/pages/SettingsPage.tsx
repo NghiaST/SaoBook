@@ -344,7 +344,7 @@ export function SettingsPage() {
         {/* ResponsiveVoice — note */}
         {settings.ttsMode === 'responsivevoice' && (
           <div className="text-xs bg-[var(--bg-alt)] rounded-lg p-3 text-[var(--text-muted)] leading-relaxed">
-            <strong>ResponsiveVoice</strong> cần API key được cấu hình bởi admin. Giọng sẽ tự chọn theo ngôn ngữ đã chọn. Đảm bảo admin đã thêm ít nhất 1 key active trong trang Admin → TTS Keys.
+                <strong>ResponsiveVoice</strong> cần API key active được cấu hình cho tài khoản hoặc bởi admin.
           </div>
         )}
 

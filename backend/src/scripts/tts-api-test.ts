@@ -40,16 +40,20 @@ async function login(identifier: string, loginPassword: string, label: string) {
   })
   expectStatus(result, 200, `${label} login`)
   if (!result.body.accessToken) throw new Error(`${label} login: access token missing`)
-  return result.body.accessToken as string
+  return { token: result.body.accessToken as string, userId: result.body.user.id as string }
 }
 
 async function main() {
-  const adminToken = await login(adminUsername, adminPassword, 'admin')
-  const userToken = await login(username, password, 'user')
+  const adminAuth = await login(adminUsername, adminPassword, 'admin')
+  const userAuth = await login(username, password, 'user')
+  const adminToken = adminAuth.token
+  const userToken = userAuth.token
   const testId = randomUUID().slice(0, 8)
   const label = `TTS API Test ${testId}`
   const key = `tts-test-key-${testId}`
+  const userKey = `tts-user-key-${testId}`
   let keyId: string | undefined
+  let userKeyId: string | undefined
 
   try {
     const unauthenticated = await request('/tts/keys/active', { method: 'GET' })
@@ -71,6 +75,16 @@ async function main() {
       throw new Error('list TTS keys: created key was not found')
     }
 
+    const createdUserKey = await request('/tts/keys', {
+      method: 'POST', token: userToken,
+      body: { label: `${label} User`, key: userKey },
+    })
+    expectStatus(createdUserKey, 201, 'create user TTS key')
+    userKeyId = createdUserKey.body.id
+    if (!userKeyId || createdUserKey.body.userId !== userAuth.userId) {
+      throw new Error('create user TTS key: ownership was not returned')
+    }
+
     const updated = await request(`/tts/keys/${keyId}`, {
       method: 'PATCH', token: adminToken, body: { label: `${label} Updated`, active: false },
     })
@@ -82,7 +96,10 @@ async function main() {
     const activeAfterDisable = await request('/tts/keys/active', { method: 'GET', token: userToken })
     expectStatus(activeAfterDisable, 200, 'list active TTS keys after disable')
     if (!Array.isArray(activeAfterDisable.body.keys) || activeAfterDisable.body.keys.includes(key)) {
-      throw new Error('list active TTS keys: disabled key was returned')
+      throw new Error('list active TTS keys: disabled global key was returned')
+    }
+    if (!activeAfterDisable.body.keys.includes(userKey)) {
+      throw new Error('list active TTS keys: owned active key was not returned')
     }
 
     const enabled = await request(`/tts/keys/${keyId}`, {
@@ -100,11 +117,19 @@ async function main() {
     expectStatus(deleted, 204, 'delete TTS key')
     keyId = undefined
 
+    const deletedUserKey = await request(`/tts/keys/${userKeyId}`, { method: 'DELETE', token: userToken })
+    expectStatus(deletedUserKey, 204, 'delete user TTS key')
+    userKeyId = undefined
+
     console.log('TTS API test passed:', { label })
   } finally {
     if (keyId !== undefined) {
       const cleanup = await request(`/tts/keys/${keyId}`, { method: 'DELETE', token: adminToken })
       expectStatus(cleanup, 204, 'cleanup TTS key')
+    }
+    if (userKeyId !== undefined) {
+      const cleanup = await request(`/tts/keys/${userKeyId}`, { method: 'DELETE', token: userToken })
+      expectStatus(cleanup, 204, 'cleanup user TTS key')
     }
   }
 }

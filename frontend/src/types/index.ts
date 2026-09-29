@@ -132,6 +132,7 @@ export interface LoginResponse extends AuthTokens {
 
 export interface RvApiKey {
   id: string
+  userId: string | null
   label: string
   key: string
   active: boolean
