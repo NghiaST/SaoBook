@@ -263,7 +263,7 @@ export const useUpsertReview = (storyId: number) => {
       api.put<Review>(`/stories/${storyId}/reviews`, data).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['reviews', storyId] })
-      qc.invalidateQueries({ queryKey: ['story', storyId] })
+      qc.invalidateQueries({ queryKey: ['story'] })
     },
   })
 }
