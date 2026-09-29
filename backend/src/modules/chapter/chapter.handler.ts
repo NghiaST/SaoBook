@@ -75,20 +75,35 @@ export async function createChaptersBatch(
   const story = await assertStoryOwner(storyId, userId, role)
 
   const chapters = request.body as Array<{ name: string; content: string; order?: number }>
-  let currentOrder = await nextOrder(story.id)
+  if (!Array.isArray(chapters) || chapters.length === 0) {
+    throw new ValidationError('At least one chapter is required')
+  }
 
-  const created = await Promise.all(
-    chapters.map(async ({ name, content, order }) => {
+  let currentOrder = await nextOrder(story.id)
+  const createdIds: number[] = []
+  const uploadedUrls: string[] = []
+
+  try {
+    const created = []
+    for (const { name, content, order } of chapters) {
       const chapterOrder = order ?? currentOrder++
       const chapter = await prisma.chapter.create({
         data: { name, order: chapterOrder, contentUrl: '', storyId: story.id },
       })
+      createdIds.push(chapter.id)
       const contentUrl = await uploadChapterContent(content, story.id, chapter.id)
-      return prisma.chapter.update({ where: { id: chapter.id }, data: { contentUrl } })
-    }),
-  )
+      uploadedUrls.push(contentUrl)
+      created.push(await prisma.chapter.update({ where: { id: chapter.id }, data: { contentUrl } }))
+    }
 
-  return reply.code(201).send(created)
+    return reply.code(201).send(created)
+  } catch (error) {
+    await Promise.all(uploadedUrls.map((url) => deleteFile(url).catch(() => null)))
+    if (createdIds.length > 0) {
+      await prisma.chapter.deleteMany({ where: { id: { in: createdIds } } })
+    }
+    throw error
+  }
 }
 
 // ── Update chapter ────────────────────────────────────────────────────────────
