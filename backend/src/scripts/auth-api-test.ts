@@ -18,21 +18,22 @@ interface User {
 interface AuthResponse {
   user?: User
   accessToken?: string
-  refreshToken?: string
 }
 
 interface ApiResponse {
   status: number
   body: Record<string, any>
+  cookie?: string
 }
 
 async function request(
   path: string,
-  options: { method: string; body?: unknown; token?: string },
+  options: { method: string; body?: unknown; token?: string; cookie?: string },
 ): Promise<ApiResponse> {
   const headers: Record<string, string> = {}
   if (options.body !== undefined) headers['Content-Type'] = 'application/json'
   if (options.token) headers.Authorization = `Bearer ${options.token}`
+  if (options.cookie) headers.cookie = options.cookie
 
   const response = await fetch(`${apiBase}${path}`, {
     method: options.method,
@@ -44,13 +45,17 @@ async function request(
   let body: Record<string, any> = {}
   if (text) body = JSON.parse(text) as Record<string, any>
 
-  return { status: response.status, body }
+  return { status: response.status, body, cookie: response.headers.get('set-cookie') ?? undefined }
 }
 
 function expectStatus(result: ApiResponse, expected: number, label: string) {
   if (result.status !== expected) {
     throw new Error(`${label}: expected ${expected}, received ${result.status}: ${JSON.stringify(result.body)}`)
   }
+}
+
+function expectCookie(value: string | undefined, label: string) {
+  if (!value || !value.includes('refreshToken=')) throw new Error(`${label}: refresh cookie missing`)
 }
 
 function expectToken(value: string | undefined, label: string) {
@@ -73,7 +78,7 @@ async function main() {
     throw new Error('register: response user does not match the created account')
   }
   expectToken(registrationAuth.accessToken, 'register accessToken')
-  expectToken(registrationAuth.refreshToken, 'register refreshToken')
+  expectCookie(registration.cookie, 'register')
 
   const duplicate = await request('/auth/register', {
     method: 'POST',
@@ -88,7 +93,7 @@ async function main() {
   expectStatus(emailLogin, 200, 'email login')
   const emailAuth = emailLogin.body as AuthResponse
   expectToken(emailAuth.accessToken, 'email login accessToken')
-  expectToken(emailAuth.refreshToken, 'email login refreshToken')
+  expectCookie(emailLogin.cookie, 'email login')
 
   const usernameLogin = await request('/auth/login', {
     method: 'POST',
@@ -98,11 +103,11 @@ async function main() {
 
   const refresh = await request('/auth/refresh', {
     method: 'POST',
-    body: { refreshToken: emailAuth.refreshToken },
+    cookie: emailLogin.cookie,
   })
   expectStatus(refresh, 200, 'refresh')
   expectToken(refresh.body.accessToken, 'refresh accessToken')
-  expectToken(refresh.body.refreshToken, 'refresh refreshToken')
+  expectCookie(refresh.cookie, 'refresh')
 
   const logout = await request('/auth/logout', {
     method: 'POST',
@@ -118,7 +123,6 @@ async function main() {
 
   const invalidRefresh = await request('/auth/refresh', {
     method: 'POST',
-    body: { refreshToken: 'not-a-token' },
   })
   expectStatus(invalidRefresh, 401, 'invalid refresh')
 

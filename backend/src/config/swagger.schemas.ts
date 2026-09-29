@@ -51,8 +51,7 @@ export const AuthResponse = {
         role:     { type: 'string', enum: ['user', 'author', 'admin'] },
       },
     },
-    accessToken:  { type: 'string' },
-    refreshToken: { type: 'string' },
+    accessToken: { type: 'string' },
   },
 }
 

@@ -21,7 +21,7 @@ export function RegisterPage() {
     setError('')
     register.mutate(form, {
       onSuccess: (data) => {
-        setAuth(data.user, data.accessToken, data.refreshToken)
+        setAuth(data.user, data.accessToken)
         navigate('/')
       },
       onError: (err: any) => setError(err.response?.data?.message ?? 'Đăng ký thất bại'),

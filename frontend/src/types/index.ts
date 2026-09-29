@@ -26,7 +26,14 @@ export interface UISettings {
   lineHeight: number
 }
 
-export interface UserSettings extends TTSSettings, UISettings {}
+export interface UserSettings {
+  id: string
+  userId: string
+  ttsLanguage: TTSLanguage
+  ttsVoice: TTSVoice
+  ttsSpeed: number
+  autoNextChapter: boolean
+}
 
 export interface User {
   id: string
@@ -121,7 +128,6 @@ export interface PaginatedResponse<T> {
 
 export interface AuthTokens {
   accessToken: string
-  refreshToken: string
 }
 
 export interface LoginResponse extends AuthTokens {
@@ -132,10 +138,10 @@ export interface LoginResponse extends AuthTokens {
 
 export interface RvApiKey {
   id: string
-  userId: string | null
+  userSettingsId: string | null
   label: string
   key: string
-  active: boolean
+  status: 'personal' | 'public' | 'hidden'
   createdAt: string
   updatedAt: string
 }

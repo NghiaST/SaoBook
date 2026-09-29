@@ -3,22 +3,30 @@ import axios, {
   AxiosError,
   InternalAxiosRequestConfig,
 } from 'axios'
+import { useAuthStore } from '@/store/auth.store'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
 
 export const api = axios.create({
   baseURL: BASE_URL,
-  withCredentials: false,
+  withCredentials: true,
   // Do NOT set a default Content-Type.
   // Axios will automatically set:
   // - application/json for regular objects
   // - multipart/form-data; boundary=... for FormData
 })
 
+export const refreshSession = () =>
+  axios.post<{ accessToken: string }>(
+    `${BASE_URL}/auth/refresh`,
+    undefined,
+    { withCredentials: true },
+  )
+
 // ── Attach access token ───────────────────────────────────────────────────────
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('accessToken')
+    const token = useAuthStore.getState().accessToken
 
     if (token) {
       config.headers.set('Authorization', `Bearer ${token}`)
@@ -49,7 +57,11 @@ api.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    if (error.response?.status === 401 && !original._retry) {
+    if (
+      error.response?.status === 401 &&
+      !original._retry &&
+      !original.url?.endsWith('/auth/refresh')
+    ) {
       original._retry = true
 
       // If a token refresh is already in progress, wait for the new token.
@@ -64,18 +76,9 @@ api.interceptors.response.use(
 
       isRefreshing = true
 
-      const refreshToken = localStorage.getItem('refreshToken')
-
       try {
-        const { data } = await axios.post<{
-          accessToken: string
-          refreshToken: string
-        }>(`${BASE_URL}/auth/refresh`, {
-          refreshToken,
-        })
-
-        localStorage.setItem('accessToken', data.accessToken)
-        localStorage.setItem('refreshToken', data.refreshToken)
+        const { data } = await refreshSession()
+        useAuthStore.getState().setAccessToken(data.accessToken)
 
         // Retry all requests that were waiting for the new token.
         waitQueue.forEach((callback) => callback(data.accessToken))
@@ -95,8 +98,7 @@ api.interceptors.response.use(
 
         return api(original)
       } catch (refreshError) {
-        localStorage.removeItem('accessToken')
-        localStorage.removeItem('refreshToken')
+        useAuthStore.getState().logout()
 
         waitQueue = []
 

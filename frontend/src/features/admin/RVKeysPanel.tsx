@@ -41,8 +41,8 @@ export function RVKeysPanel() {
     setEditingId(null)
   }
 
-  const handleToggleActive = (k: RvApiKey) => {
-    updateKey.mutate({ id: k.id, active: !k.active })
+  const handleToggleStatus = (k: RvApiKey) => {
+    updateKey.mutate({ id: k.id, status: k.status === 'hidden' ? 'public' : 'hidden' })
   }
 
   const handleDelete = (id: string) => {
@@ -132,7 +132,7 @@ export function RVKeysPanel() {
               key={k.id}
               className={cn(
                 'card p-3 flex items-center gap-3 transition-all',
-                !k.active && 'opacity-50',
+                k.status === 'hidden' && 'opacity-50',
               )}
             >
               {/* Index badge */}
@@ -166,14 +166,14 @@ export function RVKeysPanel() {
                 </div>
               )}
 
-              {/* Active badge */}
+              {/* Visibility badge */}
               <span className={cn(
                 'shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium',
-                k.active
+                k.status !== 'hidden'
                   ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                   : 'bg-[var(--bg-alt)] text-[var(--text-subtle)]',
               )}>
-                {k.active ? 'Active' : 'Tắt'}
+                {k.status === 'hidden' ? 'Ẩn' : k.status === 'personal' ? 'Cá nhân' : 'Public'}
               </span>
 
               {/* Actions */}
@@ -196,11 +196,11 @@ export function RVKeysPanel() {
                 ) : (
                   <>
                     <button
-                      onClick={() => handleToggleActive(k)}
+                      onClick={() => handleToggleStatus(k)}
                       className="p-1.5 rounded-lg text-[var(--text-muted)] hover:bg-[var(--bg-alt)]"
-                      title={k.active ? 'Tắt key' : 'Bật key'}
+                      title={k.status === 'hidden' ? 'Hiện key' : 'Ẩn key'}
                     >
-                      {k.active ? <ToggleRight size={16} className="text-green-600" /> : <ToggleLeft size={16} />}
+                      {k.status !== 'hidden' ? <ToggleRight size={16} className="text-green-600" /> : <ToggleLeft size={16} />}
                     </button>
                     <button
                       onClick={() => startEdit(k)}
@@ -225,7 +225,7 @@ export function RVKeysPanel() {
       )}
 
       <p className="text-xs text-[var(--text-subtle)]">
-        {keys.filter((k) => k.active).length} key active · {keys.length} tổng
+        {keys.filter((k) => k.status !== 'hidden').length} key hiện · {keys.length} tổng
       </p>
     </div>
   )

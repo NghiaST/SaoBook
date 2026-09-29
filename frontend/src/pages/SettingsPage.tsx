@@ -118,18 +118,10 @@ export function SettingsPage() {
   const save = () => {
     if (!isAuthenticated) return
     updateSettings.mutate({
-      theme:             settings.theme,
-      bgColor:           settings.bgColor,
-      textColor:         settings.textColor,
-      fontFamily:        settings.fontFamily,
-      fontSize:          settings.fontSize,
-      lineHeight:        settings.lineHeight,
       ttsLanguage:       settings.ttsLanguage,
       ttsVoice:          settings.ttsVoice,
       ttsSpeed:          settings.ttsSpeed,
-      ttsVolume:         settings.ttsVolume,
       autoNextChapter:   settings.autoNextChapter,
-      sleepTimerMinutes: settings.sleepTimerMinutes,
     })
   }
 

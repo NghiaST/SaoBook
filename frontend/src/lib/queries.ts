@@ -349,7 +349,7 @@ export const useCreateRVKey = () => {
 export const useUpdateRVKey = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; label?: string; key?: string; active?: boolean }) =>
+    mutationFn: ({ id, ...data }: { id: string; label?: string; key?: string; status?: RvApiKey['status'] }) =>
       api.patch<RvApiKey>(`/tts/keys/${id}`, data).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-rv-keys'] }),
   })

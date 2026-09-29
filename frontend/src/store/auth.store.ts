@@ -1,49 +1,34 @@
 // src/store/auth.store.ts
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import type { User } from '@/types'
 
 interface AuthState {
   user: User | null
   accessToken: string | null
-  refreshToken: string | null
   isAuthenticated: boolean
 
-  setAuth: (user: User, accessToken: string, refreshToken: string) => void
+  setAuth: (user: User, accessToken: string) => void
+  setAccessToken: (accessToken: string) => void
   setUser: (user: User) => void
   logout: () => void
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
+export const useAuthStore = create<AuthState>()((set) => ({
       user: null,
       accessToken: null,
-      refreshToken: null,
       isAuthenticated: false,
 
-      setAuth: (user, accessToken, refreshToken) => {
-        localStorage.setItem('accessToken', accessToken)
-        localStorage.setItem('refreshToken', refreshToken)
-        set({ user, accessToken, refreshToken, isAuthenticated: true })
+      setAuth: (user, accessToken) => {
+        localStorage.setItem('hasSession', 'true')
+        set({ user, accessToken, isAuthenticated: true })
       },
 
-      setUser: (user) => set({ user }),
+      setAccessToken: (accessToken) => set({ accessToken }),
+
+      setUser: (user) => set({ user, isAuthenticated: true }),
 
       logout: () => {
-        localStorage.removeItem('accessToken')
-        localStorage.removeItem('refreshToken')
-        set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false })
+        localStorage.removeItem('hasSession')
+        set({ user: null, accessToken: null, isAuthenticated: false })
       },
-    }),
-    {
-      name: 'auth',
-      partialize: (state) => ({
-        user: state.user,
-        accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
-        isAuthenticated: state.isAuthenticated,
-      }),
-    },
-  ),
-)
+    }))

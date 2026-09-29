@@ -2,7 +2,7 @@
 import { FastifyInstance } from 'fastify'
 import * as handler from './auth.handler'
 import {
-  RegisterBody, LoginBody, RefreshBody,
+  RegisterBody, LoginBody,
   ForgotPasswordBody, ResetPasswordBody,
   AuthResponse, ErrorSchema,
 } from '../../config/swagger.schemas'
@@ -40,7 +40,6 @@ export async function authRoutes(app: FastifyInstance) {
     schema: {
       ...tag,
       summary: 'Refresh access token',
-      body: RefreshBody,
       response: {
         200: { description: 'New token pair', ...AuthResponse },
         401: { description: 'Invalid refresh token', ...ErrorSchema },
@@ -49,7 +48,6 @@ export async function authRoutes(app: FastifyInstance) {
   }, handler.refresh)
 
   app.post('/logout', {
-    preHandler: [app.authenticate],
     schema: {
       ...tag, ...bearer,
       summary: 'Logout',

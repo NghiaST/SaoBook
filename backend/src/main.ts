@@ -1,6 +1,7 @@
 // src/main.ts
 import 'dotenv/config'
 import Fastify from 'fastify'
+import cookie from '@fastify/cookie'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import jwt from '@fastify/jwt'
@@ -33,6 +34,8 @@ async function bootstrap() {
   // ── Plugins ──────────────────────────────────────────────────────────────────
 
   await app.register(helmet)
+
+  await app.register(cookie)
 
   await app.register(cors, {
     origin: config.cors.origin,

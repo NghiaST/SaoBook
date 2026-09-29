@@ -21,6 +21,18 @@ interface RegisterBody {
   password: string
 }
 
+const refreshCookieOptions = {
+  httpOnly: true,
+  secure: config.isProd,
+  sameSite: config.isProd ? 'none' as const : 'lax' as const,
+  path: '/api/auth',
+  maxAge: 30 * 24 * 60 * 60,
+}
+
+function setRefreshCookie(reply: FastifyReply, refreshToken: string) {
+  reply.setCookie('refreshToken', refreshToken, refreshCookieOptions)
+}
+
 export async function register(
   request: FastifyRequest<{ Body: RegisterBody }>,
   reply: FastifyReply,
@@ -59,8 +71,9 @@ export async function register(
   })
 
   const { accessToken, refreshToken } = signTokens(request, user)
+  setRefreshCookie(reply, refreshToken)
 
-  return reply.code(201).send({ user, accessToken, refreshToken })
+  return reply.code(201).send({ user, accessToken })
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
@@ -90,30 +103,29 @@ export async function login(
 
   const payload = { id: user.id, username: user.username, role: user.role }
   const { accessToken, refreshToken } = signTokens(request, payload)
+  setRefreshCookie(reply, refreshToken)
 
   return reply.send({
     user: { id: user.id, username: user.username, name: user.name, role: user.role },
     accessToken,
-    refreshToken,
   })
 }
 
 // ── Refresh ───────────────────────────────────────────────────────────────────
 
-interface RefreshBody {
-  refreshToken: string
-}
-
 export async function refresh(
-  request: FastifyRequest<{ Body: RefreshBody }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ) {
   try {
+    const cookieRefreshToken = request.cookies.refreshToken
+    if (!cookieRefreshToken) throw new UnauthorizedError('Invalid refresh token')
+
     const payload = request.server.jwt.verify<{
       id: string
       username: string
       role: string
-    }>(request.body.refreshToken, { key: config.jwt.refreshSecret })
+    }>(cookieRefreshToken, { key: config.jwt.refreshSecret })
 
     const user = await prisma.user.findUnique({
       where: { id: payload.id },
@@ -122,7 +134,8 @@ export async function refresh(
     if (!user) throw new UnauthorizedError()
 
     const { accessToken, refreshToken } = signTokens(request, user)
-    return reply.send({ accessToken, refreshToken })
+    setRefreshCookie(reply, refreshToken)
+    return reply.send({ accessToken })
   } catch {
     throw new UnauthorizedError('Invalid refresh token')
   }
@@ -131,8 +144,7 @@ export async function refresh(
 // ── Logout (client-side — just acknowledge) ───────────────────────────────────
 
 export async function logout(_request: FastifyRequest, reply: FastifyReply) {
-  // With JWT, logout is client-side (discard tokens).
-  // For server-side invalidation, add a token blacklist (Redis).
+  reply.clearCookie('refreshToken', { path: '/api/auth' })
   return reply.send({ message: 'Logged out' })
 }
 

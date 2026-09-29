@@ -1,6 +1,5 @@
 // src/store/settings.store.ts
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import type { TTSMode } from '@/types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -125,9 +124,7 @@ const defaultSavedColors: Record<UITheme, { bgColor: string; textColor: string }
   dark:  { bgColor: '#1A1510', textColor: '#A4A15B' },
 }
 
-export const useSettingsStore = create<SettingsState>()(
-  persist(
-    (set, get) => ({
+export const useSettingsStore = create<SettingsState>()((set, get) => ({
       ...defaults,
       savedColors: defaultSavedColors,
 
@@ -189,7 +186,4 @@ export const useSettingsStore = create<SettingsState>()(
         set({ ...defaults, savedColors: defaultSavedColors })
         get().applyToDOM()
       },
-    }),
-    { name: 'reader-settings' },
-  ),
-)
+    }))

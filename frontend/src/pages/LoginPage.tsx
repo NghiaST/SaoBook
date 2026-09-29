@@ -21,7 +21,7 @@ export function LoginPage() {
     setError('')
     login.mutate(form, {
       onSuccess: (data) => {
-        setAuth(data.user, data.accessToken, data.refreshToken)
+        setAuth(data.user, data.accessToken)
         navigate('/')
       },
       onError: (err: any) => setError(err.response?.data?.message ?? 'Đăng nhập thất bại'),
