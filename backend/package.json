@@ -19,6 +19,7 @@
     "test:reviews": "tsx src/scripts/reviews-api-test.ts",
     "test:bookshelf": "tsx src/scripts/bookshelf-api-test.ts",
     "test:admin": "tsx src/scripts/admin-api-test.ts",
+    "test:tts": "tsx src/scripts/tts-api-test.ts",
     "test:users": "tsx src/scripts/users-api-test.ts",
     "lint": "eslint src --ext .ts"
   },
