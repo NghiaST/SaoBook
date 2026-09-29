@@ -107,6 +107,13 @@ async function main() {
   })
   expectStatus(invalidAvatarUrl, 422, 'invalid avatar URL')
 
+  const validAvatarUrl = await request('/users/me/avatar-from-url', {
+    method: 'POST',
+    token: accessToken,
+    body: { url: 'https://avatars.githubusercontent.com/u/69393345' },
+  })
+  expectStatus(validAvatarUrl, 200, 'valid avatar URL')
+
   const wrongPassword = await request('/users/me/password', {
     method: 'PATCH',
     token: accessToken,

@@ -14,6 +14,7 @@
     "db:seed": "tsx src/prisma/seed.ts",
     "test:auth": "tsx src/scripts/auth-api-test.ts",
     "test:resend": "tsx src/scripts/resend-test.ts",
+    "test:stories-chapters": "tsx src/scripts/stories-chapters-api-test.ts",
     "test:users": "tsx src/scripts/users-api-test.ts",
     "lint": "eslint src --ext .ts"
   },
