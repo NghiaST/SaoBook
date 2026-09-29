@@ -106,7 +106,8 @@ async function bootstrap() {
 
   await app.listen({ port: config.port, host: config.host })
   console.log(`Server running on http://${config.host}:${config.port}`)
-  if (config.isDev) console.log(`Swagger docs: http://localhost:${config.port}/docs`)
+  // if (config.isDev) console.log(`Swagger docs: http://localhost:${config.port}/docs`)
+  if (config.isDev || config.swagger.isEnabled) console.log(`Swagger docs: ${config.frontendUrl}/docs`)
 }
 
 bootstrap().catch((err) => {
