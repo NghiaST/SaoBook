@@ -46,7 +46,7 @@ export async function updateProfile(request: FastifyRequest, reply: FastifyReply
     },
     select: {
       id: true, username: true, email: true,
-      name: true, bio: true, avatarUrl: true,
+      name: true, bio: true, avatarUrl: true, role: true, createdAt: true,
     },
   })
 

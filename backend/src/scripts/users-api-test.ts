@@ -111,7 +111,12 @@ async function main() {
     body: { name: 'Updated Users Test', email: updatedEmail, bio: 'Users API smoke test' },
   })
   expectStatus(updatedProfile, 200, 'update profile')
-  if (updatedProfile.body.email !== updatedEmail || updatedProfile.body.bio !== 'Users API smoke test') {
+  if (
+    updatedProfile.body.email !== updatedEmail ||
+    updatedProfile.body.bio !== 'Users API smoke test' ||
+    !updatedProfile.body.role ||
+    !updatedProfile.body.createdAt
+  ) {
     throw new Error('update profile: response does not contain the updated values')
   }
 
