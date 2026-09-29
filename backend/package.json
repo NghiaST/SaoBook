@@ -15,6 +15,9 @@
     "test:auth": "tsx src/scripts/auth-api-test.ts",
     "test:resend": "tsx src/scripts/resend-test.ts",
     "test:stories-chapters": "tsx src/scripts/stories-chapters-api-test.ts",
+    "test:comments": "tsx src/scripts/comments-api-test.ts",
+    "test:reviews": "tsx src/scripts/reviews-api-test.ts",
+    "test:bookshelf": "tsx src/scripts/bookshelf-api-test.ts",
     "test:users": "tsx src/scripts/users-api-test.ts",
     "lint": "eslint src --ext .ts"
   },
