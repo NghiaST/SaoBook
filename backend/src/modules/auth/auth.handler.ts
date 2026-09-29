@@ -155,9 +155,12 @@ export async function forgotPassword(
     const token = randomUUID()
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60) // 1 hour
 
-    await prisma.passwordReset.create({
-      data: { userId: user.id, token, expiresAt },
-    })
+    await prisma.$transaction([
+      prisma.passwordReset.deleteMany({ where: { userId: user.id } }),
+      prisma.passwordReset.create({
+        data: { userId: user.id, token, expiresAt },
+      }),
+    ])
 
     await sendPasswordResetEmail(email, user.name, token)
   }
