@@ -108,6 +108,54 @@ export const UserSettingsSchema = {
   },
 }
 
+export const BookshelfSchema = {
+  type: 'object',
+  properties: {
+    id:     { type: 'string' },
+    userId: { type: 'string' },
+    storyId: { type: 'integer' },
+    note:   { type: 'string', nullable: true },
+    savedAt: { type: 'string', format: 'date-time' },
+    story: {
+      type: 'object',
+      properties: {
+        id:       { type: 'integer' },
+        name:     { type: 'string' },
+        nameId:   { type: 'string' },
+        posterUrl: { type: 'string', nullable: true },
+      },
+    },
+  },
+}
+
+export const ReadingHistorySchema = {
+  type: 'object',
+  properties: {
+    id:            { type: 'string' },
+    userId:        { type: 'string' },
+    storyId:       { type: 'integer' },
+    lastChapterId: { type: 'integer' },
+    lastReadAt:    { type: 'string', format: 'date-time' },
+    story: {
+      type: 'object',
+      properties: {
+        id:       { type: 'integer' },
+        name:     { type: 'string' },
+        nameId:   { type: 'string' },
+        posterUrl: { type: 'string', nullable: true },
+      },
+    },
+    lastChapter: {
+      type: 'object',
+      properties: {
+        id:    { type: 'integer' },
+        name:  { type: 'string' },
+        order: { type: 'integer' },
+      },
+    },
+  },
+}
+
 export const UpdateProfileBody = {
   type: 'object',
   properties: {

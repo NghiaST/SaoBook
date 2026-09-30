@@ -4,7 +4,7 @@ import * as handler from './user.handler'
 import { requireAuth } from '../../common/middleware/auth'
 import {
   UserSchema, UpdateProfileBody, ChangePasswordBody,
-  ErrorSchema, CommentSchema, UserSettingsSchema,
+  ErrorSchema, CommentSchema, UserSettingsSchema, BookshelfSchema, ReadingHistorySchema,
 } from '../../config/swagger.schemas'
 
 const tag    = { tags: ['Users'] }
@@ -115,7 +115,7 @@ export async function userRoutes(app: FastifyInstance) {
     schema: {
       ...tag, ...bearer,
       summary: 'Get my bookshelf',
-      response: { 200: { type: 'array', items: { type: 'object' } } },
+      response: { 200: { type: 'array', items: BookshelfSchema } },
     },
   }, handler.getMyBookshelf)
 
@@ -124,7 +124,7 @@ export async function userRoutes(app: FastifyInstance) {
     schema: {
       ...tag, ...bearer,
       summary: 'Get reading history (last chapter per story)',
-      response: { 200: { type: 'array', items: { type: 'object' } } },
+      response: { 200: { type: 'array', items: ReadingHistorySchema } },
     },
   }, handler.getMyHistory)
 }
