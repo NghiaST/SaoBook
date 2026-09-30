@@ -11,7 +11,7 @@ import api from '@/lib/api'
 
 export function Header() {
   const { user, isAuthenticated, logout } = useAuthStore()
-  // Dùng toggleTheme thay vì updateUI để giữ màu đã lưu
+  // Use `toggleTheme` instead of `updateUI` to preserve the saved color.
   const { theme, toggleTheme } = useSettingsStore()
   const navigate  = useNavigate()
   const location  = useLocation()

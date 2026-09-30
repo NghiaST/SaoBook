@@ -15,8 +15,8 @@ SaoBook is a full-stack story reading application. It provides story and chapter
 
 Project documentation is organized under the docs folder so the architectural notes, stack summary, and implementation context are easy to find.
 
-- [docs/ClassDiagramAndUseCase.md](docs/ClassDiagramAndUseCase.md) — current domain model and use-case specification
-- [docs/Stack.md](docs/Stack.md) — technology stack summary
+- [docs/ClassDiagramAndUseCase.md](docs/ClassDiagramAndUseCase.md) - current domain model and use-case specification
+- [docs/Stack.md](docs/Stack.md) - technology stack summary
 
 ## Repository Layout
 

@@ -16,7 +16,7 @@ export interface ThemeBgOption {
   desc: string
 }
 
-// Preset màu nền theo theme
+// Background color presets per theme
 export const THEME_BG_OPTIONS: Record<UITheme, ThemeBgOption[]> = {
   light: [
     { name: 'Giấy kem',       bg: '#FDFBF7', text: '#241E16', desc: 'Mặc định ấm áp' },
@@ -86,15 +86,15 @@ export interface TTSSettings {
 }
 
 interface SettingsState extends UISettings, TTSSettings {
-  /** Màu đã lưu riêng cho từng theme — để khi toggle không mất setting */
+  /** Saved colors for each theme - to restore when toggling */
   savedColors: Record<UITheme, { bgColor: string; textColor: string }>
 
   applyToDOM: () => void
   updateUI: (patch: Partial<UISettings>) => void
   updateTTS: (patch: Partial<TTSSettings>) => void
-  /** Toggle theme sáng/tối — khôi phục màu đã lưu của theme đích */
+  /** Toggle light/dark theme - restore saved colors of the target theme */
   toggleTheme: () => void
-  /** Reset toàn bộ về default */
+  /** Reset all settings to default */
   resetAll: () => void
 }
 
@@ -140,7 +140,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       },
 
       updateUI: (patch) => {
-        // Nếu đang thay đổi màu, lưu lại cho theme hiện tại
+        // If changing colors, save for the current theme
         const current = get()
         const colorPatch: Partial<Record<UITheme, { bgColor: string; textColor: string }>> = {}
         if (patch.bgColor !== undefined || patch.textColor !== undefined) {
@@ -164,13 +164,13 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       toggleTheme: () => {
         const { theme, savedColors } = get()
         const newTheme: UITheme = theme === 'light' ? 'dark' : 'light'
-        // Lưu màu hiện tại cho theme cũ
+        // Save current colors for the old theme
         const { bgColor, textColor } = get()
         const newColors = {
           ...savedColors,
           [theme]: { bgColor, textColor },
         }
-        // Khôi phục màu đã lưu của theme mới (hoặc default nếu chưa có)
+        // Restore saved colors of the new theme (or default if not saved)
         const restored = newColors[newTheme] ?? THEME_DEFAULTS[newTheme]
 
         set({

@@ -147,7 +147,7 @@ export async function refresh(
   }
 }
 
-// ── Logout (client-side — just acknowledge) ───────────────────────────────────
+// ── Logout (client-side - just acknowledge) ───────────────────────────────────
 
 export async function logout(_request: FastifyRequest, reply: FastifyReply) {
   reply.clearCookie('refreshToken', { path: '/api/auth' })

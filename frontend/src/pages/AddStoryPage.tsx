@@ -93,10 +93,10 @@ export function AddStoryPage() {
       <form onSubmit={handleSubmit} className="card p-6 space-y-4">
         {/*
           PosterInput:
-          - chọn file → File object
-          - paste/nhập URL → fetch blob → new File(...)
-          - Ctrl+V ảnh từ clipboard → File object
-          Tất cả đều kết thúc bằng 1 File object, gửi cùng FormData khi submit
+          - select file → File object
+          - paste/enter URL → fetch blob → new File(...)
+          - Ctrl+V image from clipboard → File object
+          All of them end with 1 File object, sent with FormData on submit
         */}
         <PosterInput
           file={posterFile}

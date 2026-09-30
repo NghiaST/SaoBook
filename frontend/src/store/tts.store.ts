@@ -55,7 +55,7 @@ interface TTSState {
       onParagraphChange?: (index: number) => void
     }
   ) => void
-  /** Cung cấp RV keys để store dùng */
+  /** Provide RV keys for the store to use */
   setRVKeys: (keys: string[]) => void
 }
 
@@ -223,7 +223,7 @@ export const useTTSStore = create<TTSState>()((set, get) => {
         }, 1000)
       }
 
-      // Nếu dùng RV, prefetch tất cả đoạn (fire-and-forget; RV SDK tự cache)
+      // If using RV, prefetch all paragraphs (fire-and-forget; RV SDK caches automatically)
       if (settings.mode === 'responsivevoice') {
         prefetchAllParagraphs(paragraphs, settings.lang, settings.voiceName, {
           rate: settings.speed,

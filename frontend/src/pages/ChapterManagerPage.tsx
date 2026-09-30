@@ -14,7 +14,7 @@ import type { Chapter } from '@/types'
 interface EditState { name: string; content: string }
 
 function ChapterRow({
-  chapter, storyId,
+  chapter,
   onDelete,
 }: {
   chapter: Chapter; storyId: number
@@ -27,7 +27,7 @@ function ChapterRow({
   const [contentError, setContentError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const updateChapter = useUpdateChapter()
-  const deleteChapter = useDeleteChapter(storyId)
+  const deleteChapter = useDeleteChapter()
 
   const loadContent = async () => {
     setContentLoading(true)
@@ -159,7 +159,7 @@ export function ChapterManagerPage() {
     })
   }
 
-  // Batch file upload — reads each .txt file as a chapter
+  // Batch file upload - reads each .txt file as a chapter
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
     if (!files.length) return

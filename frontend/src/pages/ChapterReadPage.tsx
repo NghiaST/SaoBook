@@ -31,7 +31,8 @@ export function ChapterReadPage() {
   const { data: chapter, isLoading } = useChapter(chapterId)
   const { data: chapters }           = useChapterList(nameId!)
 
-  // Fetch RV active keys (chỉ khi đã đăng nhập và dùng RV mode)
+  // Fetch RV active keys (only when logged in and using RV mode)
+
   const { data: rvKeys } = useRVActiveKeys(isAuthenticated && ttsMode === 'responsivevoice')
 
   const [content,        setContent]        = useState<string | null>(null)
@@ -50,12 +51,12 @@ export function ChapterReadPage() {
 
   const scrollHidden = useScrollHide(20)
 
-  // ── Load RV keys vào store & script ────────────────────────────────────────
+  // ── Load RV keys into store & script ────────────────────────────────────────
 
   useEffect(() => {
     if (!rvKeys || rvKeys.length === 0) return
     setRVKeys(rvKeys)
-    // Load RV script với key đầu tiên
+    // Load RV script with the first key
     loadRVScript(rvKeys[0]).catch(() => null)
   }, [rvKeys, setRVKeys])
 
@@ -117,7 +118,7 @@ export function ChapterReadPage() {
       .finally(() => setContentLoading(false))
   }, [chapter?.contentUrl])
 
-  // Khi chuyển chapter
+  // When switching chapters
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
     if (ttsTriggeredNav.current) {
@@ -127,7 +128,7 @@ export function ChapterReadPage() {
     }
   }, [chapterId])
 
-  // Tiếp tục đọc sau khi TTS tự chuyển chapter
+  // Continue reading after TTS automatically switches chapters
   useEffect(() => {
     if (!content || !autoNextChapter) return
     const { status: s, chapterId: ttsId } = useTTSStore.getState()

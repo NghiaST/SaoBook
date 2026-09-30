@@ -72,7 +72,7 @@ export function HomePage() {
           Thư Viện Truyện
         </h1>
         <p className="text-[var(--text-muted)] font-body text-lg max-w-xl mx-auto">
-          Đọc nghe hàng ngàn câu chuyện — từ cổ điển đến hiện đại.
+          Đọc nghe hàng ngàn câu chuyện -- từ cổ điển đến hiện đại.
         </p>
         <Link to="/stories" className="btn-primary mt-5 inline-flex">
           Khám phá tất cả truyện

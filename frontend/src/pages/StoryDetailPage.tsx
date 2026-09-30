@@ -77,7 +77,7 @@ export function StoryDetailPage() {
   const { data: reviews } = useReviews(storyId)
   const { data: bookshelf } = useMyBookshelf()
   const { data: comments } = useComments(storyId)
-  // Reading history để lấy chapter gần nhất + danh sách đã đọc
+  // Reading history to get latest chapter + read list
   const { data: history } = useMyHistory()
 
   const upsertReview = useUpsertReview(storyId)
@@ -97,13 +97,13 @@ export function StoryDetailPage() {
   const isSaved = bookshelf?.some((b) => b.storyId === story.id)
   const myReview = reviews?.find((r) => r.userId === user?.id)
 
-  // Lấy thông tin đọc của story này từ history
+  // Get reading information of this story from history
   const storyHistory = history?.find((h) => h.storyId === story.id)
   const lastChapter = storyHistory?.lastChapter
 
-  // Set các chapterId đã đọc (từ ChapterReadLog — backend nên trả về readChapterIds trong history hoặc story)
-  // Hiện tại dùng lastChapterId làm fallback: các chapter order <= lastChapter.order coi là đã đọc
-  // Nếu backend trả về readChapterIds[], dùng Set để check O(1)
+  // Set the chapterIds that have been read (from ChapterReadLog - backend should return readChapterIds in history or story)
+  // Currently use lastChapterId as a fallback: chapters with order <= lastChapter.order are considered read
+  // If the backend returns readChapterIds[], use a Set for O(1) lookup
   const readUpToOrder = lastChapter?.order ?? 0
 
   const toggleBookshelf = () => {
@@ -124,8 +124,8 @@ export function StoryDetailPage() {
       onSuccess: () => setCommentText(''),
     })
   }
-
-  // Button "Đọc": nếu có lastChapter trong history thì "Đọc chương X", ngược lại "Đọc từ đầu"
+  
+  // "Read" button: if there is a lastChapter in history, show "Read chapter X"; otherwise, show "Start reading"
   const readButtonLabel = lastChapter
     ? `Đọc chương ${lastChapter.order}`
     : 'Đọc từ đầu'
@@ -194,7 +194,7 @@ export function StoryDetailPage() {
             )}
           </div>
 
-          {/* Description — hiển thị đầy đủ */}
+          {/* Description - show all */}
           {story.description && (
             <div className="mb-4">
               <p
@@ -204,7 +204,7 @@ export function StoryDetailPage() {
               >
                 {story.description}
               </p>
-              {/* Chỉ hiện toggle nếu description đủ dài */}
+              {/* Only show toggle if the description is long enough */}
               {story.description.length > 200 && (
                 <button
                   onClick={() => setDescExpanded((v) => !v)}

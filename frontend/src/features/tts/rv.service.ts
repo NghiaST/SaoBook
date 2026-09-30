@@ -1,9 +1,9 @@
 // src/features/tts/rv.service.ts
 /**
- * ResponsiveVoice wrapper với:
- * - Round-robin API keys (mỗi đoạn dùng key tiếp theo)
- * - Prefetch toàn bộ audio URL trước khi đọc
- * - Fallback về speechSynthesis nếu RV không khả dụng
+ * ResponsiveVoice wrapper with:
+ * - Round-robin API keys (each segment uses the next key)
+ * - Prefetch all audio URLs before reading
+ * - Fallback to speechSynthesis if RV is unavailable
  */
 
 export interface RVPlayOptions {
@@ -15,11 +15,11 @@ export interface RVPlayOptions {
   onerror?: (e: string) => void
 }
 
-// Tên voice RV theo ngôn ngữ + giới tính
+// RV voice name by language + gender
 export function getRVVoiceName(lang: string, voiceName?: string): string {
   if (voiceName) return voiceName
 
-  // Fallback mapping lang → RV voice name hợp lý nhất
+  // Fallback mapping lang → most appropriate RV voice name
   const map: Record<string, string> = {
     vi: 'Vietnamese Female',
     en: 'US English Female',
@@ -45,9 +45,9 @@ function nextKey(): string | null {
   return key
 }
 
-// ── Prefetch: build audio URLs qua RV API ─────────────────────────────────────
-// RV dùng endpoint: https://code.responsivevoice.org/getvoice.php?...
-// Prefetch trả về Map<paragraphIndex, audioUrl>
+// ── Prefetch: build audio URLs through RV API ─────────────────────────────────
+// RV uses the endpoint: https://code.responsivevoice.org/getvoice.php?...
+// Prefetch returns Map<paragraphIndex, audioUrl>
 
 export interface PrefetchResult {
   index: number
@@ -67,9 +67,9 @@ export async function prefetchAllParagraphs(
 
   const results: PrefetchResult[] = paragraphs.map((para, i) => {
     const key = nextKey()!
-    // ResponsiveVoice getvoice URL (cùng format RV SDK dùng internally)
+    // ResponsiveVoice getvoice URL (same format used internally by the RV SDK)
     const params = new URLSearchParams({
-      t: para.slice(0, 300), // RV giới hạn ~300 chars/request
+      t: para.slice(0, 300), // RV limits ~300 chars/request
       tl: lang === 'vi' ? 'vi' : lang === 'zh' ? 'zh-CN' : 'en-US',
       sv: '',
       vn: voice,
@@ -137,7 +137,7 @@ export function rvResume() {
   window.responsiveVoice?.resume()
 }
 
-// ── Load RV script dynamically với key ───────────────────────────────────────
+// ── Load RV script dynamically with key ───────────────────────────────────────
 
 let _scriptLoaded = false
 let _scriptLoading = false

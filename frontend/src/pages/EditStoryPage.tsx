@@ -28,7 +28,7 @@ export function EditStoryPage() {
         description: story.description ?? '',
         sourceNote:  story.sourceNote  ?? '',
       })
-      // Show existing poster as initial preview (no File — won't be re-uploaded unless changed)
+      // Show existing poster as initial preview (no File - won't be re-uploaded unless changed)
       setPosterPreview(story.posterUrl ?? '')
       setPosterFile(null)
       setFieldErrors({})

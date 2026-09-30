@@ -1,7 +1,7 @@
 {
   "name": "saobook-backend",
   "version": "1.0.0",
-  "description": "Story reading app backend — Fastify + Prisma + PostgreSQL",
+  "description": "Story reading app backend - Fastify + Prisma + PostgreSQL",
   "main": "dist/main.js",
   "scripts": {
     "dev": "tsx watch src/main.ts",

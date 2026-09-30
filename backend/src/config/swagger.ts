@@ -9,7 +9,7 @@ export async function setupSwagger(app: FastifyInstance) {
       openapi: '3.0.0',
       info: {
         title: 'SaoBook API',
-        description: 'Backend API for the story reading app — auth, stories, chapters, TTS settings, reviews, comments, bookshelf, and admin.',
+        description: 'Backend API for the story reading app - auth, stories, chapters, TTS settings, reviews, comments, bookshelf, and admin.',
         version: '1.0.0',
       },
       servers: [
@@ -49,7 +49,7 @@ export async function setupSwagger(app: FastifyInstance) {
                     file: {
                       type: 'string',
                       format: 'binary',
-                      description: 'Image file (JPEG, PNG, WebP, …) — max 10 MB',
+                      description: 'Image file (JPEG, PNG, WebP, …) - max 10 MB',
                     },
                   },
                 },

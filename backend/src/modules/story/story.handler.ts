@@ -43,7 +43,7 @@ function extractFields(body: Record<string, any>): StoryFields {
     posterUrl:   str(body.posterUrl)   || undefined,
   }
 
-  // poster field — present when attachFieldsToBody: true (multipart)
+  // poster field - present when attachFieldsToBody: true (multipart)
   const poster = body.poster
   if (poster && typeof poster === 'object' && 'mimetype' in poster) {
     result.posterMime = poster.mimetype

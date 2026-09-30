@@ -6,7 +6,7 @@
   padding-bottom: 2rem;
 }
 
-/* ── App header — auto-hide on scroll ─────────────────────────────────── */
+/* ── App header - auto-hide on scroll ─────────────────────────────────── */
 
 .app-header {
   position: sticky;
@@ -24,7 +24,7 @@
 
 /* ── Reader top nav ───────────────────────────────────────────────────── */
 
-/* Desktop: sticky dưới app header */
+/* Desktop: sticky under app header */
 .reader-topnav {
   position: sticky;
   top: 3.5rem; /* 56px header */
@@ -43,7 +43,7 @@
   pointer-events: none;
 }
 
-/* Mobile: không sticky, cuộn theo trang */
+/* Mobile: not sticky, scrolls with the page */
 @media (max-width: 639px) {
   .reader-topnav {
     position: relative;
@@ -262,7 +262,7 @@
 }
 
 /* ── Mobile floating TTS pill ─────────────────────────────────────────── */
-/* Hiện trên mobile khi TTS đang chạy — nút stop nổi góc dưới phải */
+/* Mobile floating TTS pill - shows when TTS is running, stop button at bottom right */
 
 .reader-tts-fab {
   display: none;

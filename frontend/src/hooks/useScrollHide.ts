@@ -2,8 +2,8 @@
 import { useEffect, useRef, useState } from 'react'
 
 /**
- * Trả về true khi user đang scroll xuống (để ẩn header/nav).
- * threshold: số px scroll xuống trước khi trigger ẩn.
+ * Returns true when the user is scrolling down (to hide the header/nav).
+ * threshold: number of pixels scrolled down before triggering the hide.
  */
 export function useScrollHide(threshold = 20) {
   const [hidden, setHidden] = useState(false)
@@ -17,7 +17,7 @@ export function useScrollHide(threshold = 20) {
       requestAnimationFrame(() => {
         const y = window.scrollY
         if (false) {
-          // Gần đầu trang → luôn hiện
+          // Near the top of the page → always show
           setHidden(false)
         } else if (y < lastY.current - 10) {
           setHidden(false)

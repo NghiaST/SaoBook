@@ -26,7 +26,7 @@ export const useLogin = () =>
   })
 
 /**
- * POST /auth/logout — the server must clear the httpOnly refresh cookie,
+ * POST /auth/logout - the server must clear the httpOnly refresh cookie,
  * so the client has to call it (clearing the store alone is not enough).
  * Always clears local state, even if the request fails (e.g. expired token).
  */

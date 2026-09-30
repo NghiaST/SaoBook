@@ -11,7 +11,7 @@ const wrap = (Component: React.LazyExoticComponent<() => JSX.Element>) => (
   </Suspense>
 )
 
-// Pages — lazy loaded
+// Pages - lazy loaded
 const HomePage         = lazy(() => import('@/pages/HomePage').then(m => ({ default: m.HomePage })))
 const StoryListPage    = lazy(() => import('@/pages/StoryListPage').then(m => ({ default: m.StoryListPage })))
 const StoryDetailPage  = lazy(() => import('@/pages/StoryDetailPage').then(m => ({ default: m.StoryDetailPage })))

@@ -1,5 +1,5 @@
 // src/features/admin/RVKeysPanel.tsx
-// Nhúng vào AdminPage.tsx — thêm tab "TTS Keys"
+// Embed into AdminPage.tsx - add a "TTS Keys" tab
 import { useState } from 'react'
 import {
   useAdminRVKeys, useCreateRVKey, useUpdateRVKey, useDeleteRVKey,

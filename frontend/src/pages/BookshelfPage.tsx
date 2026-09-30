@@ -134,7 +134,7 @@ function HistoryTab() {
   }
 
   return (
-    <div className="space-y-3 max-w-2xl">
+    <div className="space-y-3">
       {items.map((h, i) => (
         <HistoryItem key={h.id ?? `${h.storyId}-${i}`} item={h} />
       ))}
@@ -163,16 +163,23 @@ function BookshelfTab() {
   }
 
   return (
-    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="space-y-3">
       {items.map((item, i) => {
         const storyId = item.storyId ?? item.story.id
+
         return (
           <div
             key={item.id ?? `${storyId}-${i}`}
             className="card p-4 flex gap-3 group hover:border-[var(--text-subtle)] transition-all"
           >
-            <Link to={`/stories/${item.story.nameId}`} className="shrink-0">
-              <Poster src={item.story.posterUrl} alt={item.story.name} />
+            <Link
+              to={`/stories/${item.story.nameId}`}
+              className="shrink-0"
+            >
+              <Poster
+                src={item.story.posterUrl}
+                alt={item.story.name}
+              />
             </Link>
 
             <div className="flex-1 min-w-0">
@@ -182,15 +189,18 @@ function BookshelfTab() {
               >
                 {item.story.name}
               </Link>
+
               {item.note && (
                 <p className="text-xs text-[var(--text-subtle)] mt-1 line-clamp-2 font-body italic">
                   {item.note}
                 </p>
               )}
-              <p className="text-xs text-[var(--text-subtle)] mt-2">{timeAgo(item.savedAt)}</p>
+
+              <p className="text-xs text-[var(--text-subtle)] mt-2">
+                {timeAgo(item.savedAt)}
+              </p>
             </div>
 
-            {/* Always visible on touch screens; hover-reveal only on desktop */}
             <button
               onClick={() => remove.mutate(storyId)}
               disabled={remove.isPending}
@@ -220,7 +230,7 @@ export function BookshelfPage() {
   const [tab, setTab] = useState<Tab>('history')
 
   return (
-    <div className="page-container py-8">
+    <div className="page-container py-8 max-w-2xl">
       <h1 className="section-title">Tủ sách của tôi</h1>
 
       <div className="border-b border-[var(--border)] flex gap-1 mb-6" role="tablist">

@@ -39,7 +39,7 @@ function ColorPresetPicker() {
         {presets.map((p) => (
           <button
             key={p.name}
-            title={`${p.name} — ${p.desc}`}
+            title={`${p.name} - ${p.desc}`}
             onClick={() => updateUI({ bgColor: p.bg, textColor: p.text })}
             className={cn(
               'relative h-10 rounded-lg border-2 transition-all',
@@ -60,7 +60,7 @@ function ColorPresetPicker() {
         ))}
       </div>
       <p className="text-xs text-[var(--text-subtle)] mt-1">
-        {presets.find((p) => p.bg === bgColor)?.name ?? 'Tuỳ chỉnh'} —{' '}
+        {presets.find((p) => p.bg === bgColor)?.name ?? 'Tuỳ chỉnh'} -{' '}
         {presets.find((p) => p.bg === bgColor)?.desc ?? 'Màu tuỳ chỉnh'}
       </p>
     </div>
@@ -169,7 +169,7 @@ export function SettingsPage() {
             ))}
           </div>
           <p className="text-xs text-[var(--text-subtle)] mt-1.5">
-            Màu nền/chữ được lưu riêng cho mỗi chế độ — toggle sẽ khôi phục màu đã chỉnh trước đó.
+            Màu nền/chữ được lưu riêng cho mỗi chế độ - toggle sẽ khôi phục màu đã chỉnh trước đó.
           </p>
         </div>
 
@@ -303,7 +303,7 @@ export function SettingsPage() {
           </select>
         </div>
 
-        {/* Voice picker — chỉ hiện khi dùng SpeechSynthesis */}
+        {/* Voice picker - only show it when using SpeechSynthesis */}
         {settings.ttsMode === 'speechsynthesis' && (
           <div>
             <label className="label">
@@ -333,7 +333,7 @@ export function SettingsPage() {
           </div>
         )}
 
-        {/* ResponsiveVoice — note */}
+        {/* ResponsiveVoice - note */}
         {settings.ttsMode === 'responsivevoice' && (
           <div className="text-xs bg-[var(--bg-alt)] rounded-lg p-3 text-[var(--text-muted)] leading-relaxed">
                 <strong>ResponsiveVoice</strong> cần API key active được cấu hình cho tài khoản hoặc bởi admin.

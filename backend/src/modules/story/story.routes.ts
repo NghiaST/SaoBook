@@ -81,7 +81,7 @@ export async function storyRoutes(app: FastifyInstance) {
     },
   }, handler.createStory)
 
-  // Multipart route — body schema omitted entirely so Fastify's JSON validator
+  // Multipart route - body schema omitted entirely so Fastify's JSON validator
   // never touches the multipart stream. Swagger UI gets the file picker via
   // the custom 'requestBody' field which @fastify/swagger passes through as-is.
   app.post<IdParam>('/:id/poster', {
