@@ -1,11 +1,15 @@
 // src/lib/queries.ts
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import api from './api'
+import { useAuthStore } from '@/store/auth.store'
 import type {
   User, Story, Chapter, Comment, MyComment, Review,
   BookshelfItem, ReadingHistoryItem, UserSettings, LoginResponse,
   RvApiKey,
 } from '@/types'
+
+/** Only fire user-specific queries once we actually hold an access token. */
+const useIsAuthenticated = () => useAuthStore((s) => s.isAuthenticated)
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -21,6 +25,22 @@ export const useLogin = () =>
       api.post<LoginResponse>('/auth/login', data).then((r) => r.data),
   })
 
+/**
+ * POST /auth/logout — the server must clear the httpOnly refresh cookie,
+ * so the client has to call it (clearing the store alone is not enough).
+ * Always clears local state, even if the request fails (e.g. expired token).
+ */
+export const useLogout = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post('/auth/logout').then((r) => r.data),
+    onSettled: () => {
+      useAuthStore.getState().logout()
+      qc.clear() // don't leak user A's bookshelf/history to user B
+    },
+  })
+}
+
 export const useForgotPassword = () =>
   useMutation({
     mutationFn: (data: { email: string }) =>
@@ -35,19 +55,24 @@ export const useResetPassword = () =>
 
 // ── User ──────────────────────────────────────────────────────────────────────
 
-export const useMe = (enabled = true) =>
-  useQuery({
+export const useMe = (enabled?: boolean) => {
+  const isAuthenticated = useIsAuthenticated()
+  return useQuery({
     queryKey: ['me'],
     queryFn: () => api.get<User>('/users/me').then((r) => r.data),
-    enabled,
+    enabled: enabled ?? isAuthenticated,
   })
+}
 
 export const useUpdateProfile = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: { name?: string; email?: string; bio?: string }) =>
+    mutationFn: (data: { name?: string; email?: string; bio?: string; avatarUrl?: string }) =>
       api.patch<User>('/users/me', data).then((r) => r.data),
-    onSuccess: (user) => qc.setQueryData(['me'], user),
+    onSuccess: (user) => {
+      qc.setQueryData(['me'], user)
+      useAuthStore.getState().setUser(user)
+    },
   })
 }
 
@@ -59,7 +84,10 @@ export const useUploadAvatar = () => {
       form.append('file', file)
       return api.post<User>('/users/me/avatar', form).then((r) => r.data)
     },
-    onSuccess: (user) => qc.setQueryData(['me'], user),
+    onSuccess: (user) => {
+      qc.setQueryData(['me'], user)
+      useAuthStore.getState().setUser(user)
+    },
   })
 }
 
@@ -68,7 +96,10 @@ export const useUploadAvatarFromUrl = () => {
   return useMutation({
     mutationFn: (url: string) =>
       api.post<User>('/users/me/avatar-from-url', { url }).then((r) => r.data),
-    onSuccess: (user) => qc.setQueryData(['me'], user),
+    onSuccess: (user) => {
+      qc.setQueryData(['me'], user)
+      useAuthStore.getState().setUser(user)
+    },
   })
 }
 
@@ -81,38 +112,57 @@ export const useChangePassword = () =>
 export const useUpdateSettings = () => {
   const qc = useQueryClient()
   return useMutation({
+    // ttsLanguage: 'vi' | 'en' | 'zh', ttsVoice: 'male' | 'female',
+    // ttsSpeed: 0.5–5, autoNextChapter: boolean
     mutationFn: (data: Partial<UserSettings>) =>
       api.put<UserSettings>('/users/me/settings', data).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['me'] }),
   })
 }
 
-export const useMyComments = () =>
-  useQuery({
+export const useMyComments = () => {
+  const isAuthenticated = useIsAuthenticated()
+  return useQuery({
     queryKey: ['my-comments'],
     queryFn: () => api.get<MyComment[]>('/users/me/comments').then((r) => r.data),
+    enabled: isAuthenticated,
   })
+}
 
-export const useMyBookshelf = () =>
-  useQuery({
+export const useMyBookshelf = () => {
+  const isAuthenticated = useIsAuthenticated()
+  return useQuery({
     queryKey: ['my-bookshelf'],
     queryFn: () => api.get<BookshelfItem[]>('/users/me/bookshelf').then((r) => r.data),
+    enabled: isAuthenticated,
   })
+}
 
-export const useMyHistory = () =>
-  useQuery({
+export const useMyHistory = () => {
+  const isAuthenticated = useIsAuthenticated()
+  return useQuery({
     queryKey: ['my-history'],
     queryFn: () => api.get<ReadingHistoryItem[]>('/users/me/history').then((r) => r.data),
+    enabled: isAuthenticated,
   })
-  
+}
+
 // ── Stories ───────────────────────────────────────────────────────────────────
 
-interface StoryListParams { q?: string; page?: number; limit?: number; sort?: string }
+interface StoryListParams {
+  q?: string
+  page?: number
+  limit?: number
+  sort?: 'newest' | 'rating' | 'popular'
+}
 
 export const useStories = (params: StoryListParams = {}) =>
   useQuery({
     queryKey: ['stories', params],
-    queryFn: () => api.get<{ stories: Story[]; total: number }>('/stories', { params }).then((r) => r.data),
+    queryFn: () =>
+      api
+        .get<{ stories: Story[]; total: number; page: number; limit: number }>('/stories', { params })
+        .then((r) => r.data),
     placeholderData: keepPreviousData,
   })
 
@@ -130,15 +180,18 @@ export const useChapterList = (nameId: string) =>
     enabled: !!nameId,
   })
 
-export const useMyStories = () =>
-  useQuery({
+export const useMyStories = () => {
+  const isAuthenticated = useIsAuthenticated()
+  return useQuery({
     queryKey: ['my-stories'],
     queryFn: () => api.get<Story[]>('/stories/mine').then((r) => r.data),
+    enabled: isAuthenticated,
   })
+}
 
 // Helper: build FormData from story fields + optional poster File
 function storyFormData(
-  data: { name?: string; nameId?: string; description?: string; sourceNote?: string },
+  data: { name?: string; nameId?: string; description?: string; sourceNote?: string; posterUrl?: string },
   posterFile?: File | null,
 ): FormData {
   const form = new FormData()
@@ -150,9 +203,14 @@ function storyFormData(
 export const useCreateStory = () => {
   const qc = useQueryClient()
   return useMutation({
+    // FormData fields: name*, nameId* (unique slug), description, sourceNote,
+    // posterUrl (remote URL) or posterFile (upload)
     mutationFn: (data: FormData) =>
       api.post<Story>('/stories', data).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-stories'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-stories'] })
+      qc.invalidateQueries({ queryKey: ['stories'] })
+    },
   })
 }
 
@@ -161,11 +219,39 @@ export const useUpdateStory = () => {
   return useMutation({
     mutationFn: ({ id, posterFile, ...data }: {
       id: number; name?: string; description?: string
-      sourceNote?: string; posterFile?: File | null
+      sourceNote?: string; posterUrl?: string; posterFile?: File | null
     }) => api.patch<Story>(`/stories/${id}`, storyFormData(data, posterFile)).then((r) => r.data),
     onSuccess: (story) => {
       qc.invalidateQueries({ queryKey: ['my-stories'] })
+      qc.invalidateQueries({ queryKey: ['stories'] })
       qc.invalidateQueries({ queryKey: ['story', story.nameId] })
+    },
+  })
+}
+
+export const useUploadStoryPoster = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, file }: { id: number; file: File }) => {
+      const form = new FormData()
+      form.append('file', file)
+      return api.post<{ posterUrl: string }>(`/stories/${id}/poster`, form).then((r) => r.data)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-stories'] })
+      qc.invalidateQueries({ queryKey: ['story'] })
+    },
+  })
+}
+
+export const useUploadStoryPosterFromUrl = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, url }: { id: number; url: string }) =>
+      api.post<{ posterUrl: string }>(`/stories/${id}/poster-url`, { url }).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-stories'] })
+      qc.invalidateQueries({ queryKey: ['story'] })
     },
   })
 }
@@ -174,7 +260,10 @@ export const useDeleteStory = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => api.delete(`/stories/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-stories'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-stories'] })
+      qc.invalidateQueries({ queryKey: ['stories'] })
+    },
   })
 }
 
@@ -192,7 +281,22 @@ export const useCreateChapter = (storyId: number) => {
   return useMutation({
     mutationFn: (data: { name: string; content: string; order?: number }) =>
       api.post<Chapter>(`/stories/${storyId}/chapters`, data).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['chapters'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['chapters'] })
+      qc.invalidateQueries({ queryKey: ['story'] }) // _count.chapters
+    },
+  })
+}
+
+export const useCreateChaptersBatch = (storyId: number) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Array<{ name: string; content: string; order?: number }>) =>
+      api.post<Chapter[]>(`/stories/${storyId}/chapters/batch`, data).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['chapters'] })
+      qc.invalidateQueries({ queryKey: ['story'] })
+    },
   })
 }
 
@@ -201,22 +305,34 @@ export const useUpdateChapter = () => {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: number; name?: string; content?: string; order?: number }) =>
       api.patch<Chapter>(`/chapters/${id}`, data).then((r) => r.data),
-    onSuccess: (ch) => qc.invalidateQueries({ queryKey: ['chapter', ch.id] }),
+    onSuccess: (ch) => {
+      qc.invalidateQueries({ queryKey: ['chapter', ch.id] })
+      qc.invalidateQueries({ queryKey: ['chapters'] }) // name/order shown in the list
+    },
   })
 }
 
-export const useDeleteChapter = (storyId: number) => {
+export const useDeleteChapter = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => api.delete(`/chapters/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['chapters', storyId] }),
+    // The list key is ['chapters', nameId] (slug), not storyId, so invalidate by prefix
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['chapters'] })
+      qc.invalidateQueries({ queryKey: ['story'] })
+    },
   })
 }
 
-export const useMarkChapterRead = () =>
-  useMutation({
-    mutationFn: (chapterId: number) => api.post(`/chapters/${chapterId}/read`),
+/** Requires auth. Only call it when the user is logged in. */
+export const useMarkChapterRead = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (chapterId: number) =>
+      api.post<{ ok: boolean }>(`/chapters/${chapterId}/read`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-history'] }),
   })
+}
 
 // ── Comments ──────────────────────────────────────────────────────────────────
 
@@ -235,7 +351,10 @@ export const useCreateComment = (storyId: number) => {
   return useMutation({
     mutationFn: (data: { content: string; chapterId?: number; parentCommentId?: string }) =>
       api.post<Comment>(`/stories/${storyId}/comments`, data).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['comments', storyId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['comments', storyId] })
+      qc.invalidateQueries({ queryKey: ['my-comments'] })
+    },
   })
 }
 
@@ -243,7 +362,10 @@ export const useDeleteComment = (storyId: number) => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.delete(`/comments/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['comments', storyId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['comments', storyId] })
+      qc.invalidateQueries({ queryKey: ['my-comments'] })
+    },
   })
 }
 
@@ -268,6 +390,17 @@ export const useUpsertReview = (storyId: number) => {
   })
 }
 
+export const useDeleteReview = (storyId: number) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.delete(`/stories/${storyId}/reviews`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reviews', storyId] })
+      qc.invalidateQueries({ queryKey: ['story'] })
+    },
+  })
+}
+
 // ── Bookshelf ─────────────────────────────────────────────────────────────────
 
 export const useSaveToBookshelf = () => {
@@ -275,6 +408,15 @@ export const useSaveToBookshelf = () => {
   return useMutation({
     mutationFn: ({ storyId, note }: { storyId: number; note?: string }) =>
       api.put(`/bookshelf/${storyId}`, { note }).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-bookshelf'] }),
+  })
+}
+
+export const useUpdateBookshelfNote = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ storyId, note }: { storyId: number; note: string }) =>
+      api.patch(`/bookshelf/${storyId}`, { note }).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-bookshelf'] }),
   })
 }
@@ -289,23 +431,31 @@ export const useRemoveFromBookshelf = () => {
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
-export const useAdminUsers = (params: { q?: string; role?: string; page?: number } = {}) =>
-  useQuery({
+export const useAdminUsers = (
+  params: { q?: string; role?: 'user' | 'author' | 'admin'; page?: number; limit?: number } = {},
+) => {
+  const isAuthenticated = useIsAuthenticated()
+  return useQuery({
     queryKey: ['admin-users', params],
     queryFn: () => api.get('/admin/users', { params }).then((r) => r.data),
     placeholderData: keepPreviousData,
+    enabled: isAuthenticated,
   })
+}
 
-export const useAdminStats = () =>
-  useQuery({
+export const useAdminStats = () => {
+  const isAuthenticated = useIsAuthenticated()
+  return useQuery({
     queryKey: ['admin-stats'],
     queryFn: () => api.get('/admin/stats').then((r) => r.data),
+    enabled: isAuthenticated,
   })
+}
 
 export const useChangeUserRole = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, role }: { id: string; role: string }) =>
+    mutationFn: ({ id, role }: { id: string; role: 'user' | 'author' | 'admin' }) =>
       api.patch(`/admin/users/${id}/role`, { role }).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
   })
@@ -321,28 +471,44 @@ export const useDeleteUser = () => {
 
 // ── TTS / ResponsiveVoice Keys ────────────────────────────────────────────────
 
-/** Lấy active keys — dùng trong ChapterReadPage để load vào rv.service */
-export const useRVActiveKeys = (enabled = true) =>
-  useQuery({
+/** Public keys + the current user's personal keys. Requires auth (401 for guests). */
+export const useRVActiveKeys = (enabled = true) => {
+  const isAuthenticated = useIsAuthenticated()
+  return useQuery({
     queryKey: ['rv-keys-active'],
     queryFn: () => api.get<{ keys: string[] }>('/tts/keys/active').then((r) => r.data.keys),
-    enabled,
-    staleTime: 5 * 60 * 1000, // 5 phút cache
+    enabled: enabled && isAuthenticated,
+    staleTime: 5 * 60 * 1000, // 5 min cache
   })
+}
 
-/** Admin: full list */
-export const useAdminRVKeys = () =>
-  useQuery({
-    queryKey: ['admin-rv-keys'],
+/**
+ * Regular users get their own + global keys; admins get all keys.
+ * (Not admin-only, so any logged-in user can manage their personal keys.)
+ */
+export const useRVKeys = () => {
+  const isAuthenticated = useIsAuthenticated()
+  return useQuery({
+    queryKey: ['rv-keys'],
     queryFn: () => api.get<RvApiKey[]>('/tts/keys').then((r) => r.data),
+    enabled: isAuthenticated,
   })
+}
+
+/** Backward-compatible alias */
+export const useAdminRVKeys = useRVKeys
+
+const invalidateRVKeys = (qc: ReturnType<typeof useQueryClient>) => {
+  qc.invalidateQueries({ queryKey: ['rv-keys'] })
+  qc.invalidateQueries({ queryKey: ['rv-keys-active'] })
+}
 
 export const useCreateRVKey = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: { label: string; key: string }) =>
       api.post<RvApiKey>('/tts/keys', data).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-rv-keys'] }),
+    onSuccess: () => invalidateRVKeys(qc),
   })
 }
 
@@ -351,7 +517,7 @@ export const useUpdateRVKey = () => {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; label?: string; key?: string; status?: RvApiKey['status'] }) =>
       api.patch<RvApiKey>(`/tts/keys/${id}`, data).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-rv-keys'] }),
+    onSuccess: () => invalidateRVKeys(qc),
   })
 }
 
@@ -359,6 +525,6 @@ export const useDeleteRVKey = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.delete(`/tts/keys/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-rv-keys'] }),
+    onSuccess: () => invalidateRVKeys(qc),
   })
 }

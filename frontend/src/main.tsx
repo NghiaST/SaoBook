@@ -22,36 +22,45 @@ const queryClient = new QueryClient({
 // Apply theme/settings on startup
 useSettingsStore.getState().applyToDOM()
 
-function AuthBootstrap({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = useState(false)
-  const { setAccessToken, setUser, logout } = useAuthStore()
+// Module-level: StrictMode runs effects twice in dev, which would fire two
+// refresh calls. Sharing one promise avoids a race if the backend rotates
+// refresh tokens.
+let restorePromise: Promise<User | null> | null = null
 
-  useEffect(() => {
-    let mounted = true
+function restoreSession(): Promise<User | null> {
+  const { hasSession, setAccessToken, setUser, logout } = useAuthStore.getState()
 
-    if (localStorage.getItem('hasSession') !== 'true') {
-      setReady(true)
-      return () => { mounted = false }
-    }
+  // No hint → guest, don't hit the server at all
+  if (!hasSession) return Promise.resolve(null)
 
-    refreshSession()
+  if (!restorePromise) {
+    restorePromise = refreshSession()
       .then(({ data }) => {
-        if (!mounted) return null
         setAccessToken(data.accessToken)
         return api.get<User>('/users/me')
       })
-      .then((response) => {
-        if (mounted && response) setUser(response.data)
+      .then(({ data }) => {
+        setUser(data)
+        return data
       })
       .catch(() => {
-        if (mounted) logout()
+        logout() // clears hasSession + isAuthenticated
+        return null
       })
-      .finally(() => {
-        if (mounted) setReady(true)
-      })
+  }
+  return restorePromise
+}
 
+function AuthBootstrap({ children }: { children: React.ReactNode }) {
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+    restoreSession().finally(() => {
+      if (mounted) setReady(true)
+    })
     return () => { mounted = false }
-  }, [logout, setAccessToken, setUser])
+  }, [])
 
   if (!ready) return null
   return <>{children}</>

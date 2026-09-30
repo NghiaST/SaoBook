@@ -44,7 +44,10 @@ api.interceptors.request.use(
 
 // ── Auto-refresh on 401 ───────────────────────────────────────────────────────
 let isRefreshing = false
-let waitQueue: Array<(token: string) => void> = []
+let waitQueue: Array<{
+  resolve: (token: string) => void
+  reject: (error: unknown) => void
+}> = []
 
 api.interceptors.response.use(
   (response) => response,
@@ -53,23 +56,26 @@ api.interceptors.response.use(
       | (InternalAxiosRequestConfig & { _retry?: boolean })
       | undefined
 
-    if (!original) {
-      return Promise.reject(error)
-    }
+    if (!original) return Promise.reject(error)
+
+    const hadToken = !!original.headers?.get?.('Authorization')
 
     if (
       error.response?.status === 401 &&
+      hadToken &&                                      // request was authenticated
       !original._retry &&
       !original.url?.endsWith('/auth/refresh')
     ) {
       original._retry = true
 
-      // If a token refresh is already in progress, wait for the new token.
       if (isRefreshing) {
-        return new Promise((resolve) => {
-          waitQueue.push((token) => {
-            original.headers.set('Authorization', `Bearer ${token}`)
-            resolve(api(original))
+        return new Promise((resolve, reject) => {
+          waitQueue.push({
+            resolve: (token) => {
+              original.headers.set('Authorization', `Bearer ${token}`)
+              resolve(api(original))
+            },
+            reject,
           })
         })
       }
@@ -80,29 +86,19 @@ api.interceptors.response.use(
         const { data } = await refreshSession()
         useAuthStore.getState().setAccessToken(data.accessToken)
 
-        // Retry all requests that were waiting for the new token.
-        waitQueue.forEach((callback) => callback(data.accessToken))
+        waitQueue.forEach((w) => w.resolve(data.accessToken))
         waitQueue = []
 
-        // Retry the original request.
-        original.headers.set(
-          'Authorization',
-          `Bearer ${data.accessToken}`
-        )
-
-        // If the original request contains FormData, remove Content-Type
-        // so the browser can automatically add the correct boundary.
+        original.headers.set('Authorization', `Bearer ${data.accessToken}`)
         if (original.data instanceof FormData) {
           original.headers.delete('Content-Type')
         }
-
         return api(original)
       } catch (refreshError) {
-        useAuthStore.getState().logout()
+        useAuthStore.getState().logout()   // clears hasSession + isAuthenticated
 
+        waitQueue.forEach((w) => w.reject(refreshError))
         waitQueue = []
-
-        window.location.href = '/login'
 
         return Promise.reject(refreshError)
       } finally {

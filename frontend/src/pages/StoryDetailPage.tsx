@@ -308,7 +308,7 @@ export function StoryDetailPage() {
 
       {/* ── Tab: Comments ─────────────────────────────────────────── */}
       {tab === 'comments' && (
-        <div className="space-y-6 max-w-2xl">
+        <div className="space-y-6">
           {isAuthenticated && (
             <div className="card p-4">
               <Textarea
@@ -335,7 +335,7 @@ export function StoryDetailPage() {
 
       {/* ── Tab: Reviews ──────────────────────────────────────────── */}
       {tab === 'reviews' && (
-        <div className="space-y-4 max-w-2xl">
+        <div className="space-y-6">
           {isAuthenticated && (
             <div className="card p-4">
               <p className="text-sm font-semibold text-[var(--text)] mb-3">
