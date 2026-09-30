@@ -60,9 +60,22 @@ async function main() {
 
     const users = await request('/admin/users?q=admin_api_', { method: 'GET', token: adminToken })
     expectStatus(users, 200, 'list users')
+    if (!Array.isArray(users.body.users) || typeof users.body.total !== 'number') {
+      throw new Error(`list users: response fields missing: ${JSON.stringify(users.body)}`)
+    }
 
     const stats = await request('/admin/stats', { method: 'GET', token: adminToken })
     expectStatus(stats, 200, 'get stats')
+    if (
+      typeof stats.body.users?.total !== 'number' ||
+      typeof stats.body.stories?.total !== 'number' ||
+      typeof stats.body.reads?.total !== 'number' ||
+      typeof stats.body.engagement?.comments !== 'number' ||
+      !Array.isArray(stats.body.topByReads) ||
+      !Array.isArray(stats.body.ratingDistribution)
+    ) {
+      throw new Error(`get stats: response fields missing: ${JSON.stringify(stats.body)}`)
+    }
 
     const role = await request(`/admin/users/${userId}/role`, {
       method: 'PATCH', token: adminToken, body: { role: 'author' },

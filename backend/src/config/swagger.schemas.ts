@@ -405,3 +405,54 @@ export const ChangeRoleBody = {
     role: { type: 'string', enum: ['user', 'author', 'admin'] },
   },
 }
+
+export const AdminUsersResponse = {
+  type: 'object',
+  properties: {
+    users: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    total: { type: 'integer' },
+    page: { type: 'integer' },
+    limit: { type: 'integer' },
+  },
+}
+
+export const AdminStatsResponse = {
+  type: 'object',
+  properties: {
+    users: {
+      type: 'object',
+      properties: {
+        total: { type: 'integer' },
+        newThisMonth: { type: 'integer' },
+      },
+    },
+    stories: {
+      type: 'object',
+      properties: {
+        total: { type: 'integer' },
+        newThisMonth: { type: 'integer' },
+      },
+    },
+    chapters: {
+      type: 'object',
+      properties: { total: { type: 'integer' } },
+    },
+    engagement: {
+      type: 'object',
+      properties: {
+        comments: { type: 'integer' },
+        reviews: { type: 'integer' },
+      },
+    },
+    reads: {
+      type: 'object',
+      properties: {
+        total: { type: 'integer' },
+        thisWeek: { type: 'integer' },
+      },
+    },
+    topByReads: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    topByRating: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    ratingDistribution: { type: 'array', items: { type: 'object', additionalProperties: true } },
+  },
+}

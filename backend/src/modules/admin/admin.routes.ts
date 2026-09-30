@@ -2,7 +2,10 @@
 import { FastifyInstance } from 'fastify'
 import { requireRole } from '../../common/middleware/auth'
 import * as handler from './admin.handler'
-import { AdminUserListQuery, ChangeRoleBody, ErrorSchema } from '../../config/swagger.schemas'
+import {
+  AdminUserListQuery, AdminStatsResponse, AdminUsersResponse,
+  ChangeRoleBody, ErrorSchema,
+} from '../../config/swagger.schemas'
 
 const tag = { tags: ['Admin'] }
 const bearer = { security: [{ bearerAuth: [] }] }
@@ -18,7 +21,7 @@ export async function adminRoutes(app: FastifyInstance) {
       ...tag, ...bearer,
       summary: 'List users (admin only)',
       querystring: AdminUserListQuery,
-      response: { 200: { type: 'object' } },
+      response: { 200: AdminUsersResponse },
     },
   }, handler.listUsers)
 
@@ -54,7 +57,7 @@ export async function adminRoutes(app: FastifyInstance) {
     schema: {
       ...tag, ...bearer,
       summary: 'Get admin statistics',
-      response: { 200: { type: 'object' } },
+      response: { 200: AdminStatsResponse },
     },
   }, handler.getStats)
 }

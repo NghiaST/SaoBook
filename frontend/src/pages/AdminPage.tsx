@@ -33,12 +33,12 @@ function StatCard({ icon, label, value, sub }: {
 export function AdminPage() {
   const [tab, setTab] = useState<'stats' | 'users' | 'rv-keys'>('stats')
   const [q, setQ] = useState('')
-  const [roleFilter, setRoleFilter] = useState('')
+  const [roleFilter, setRoleFilter] = useState<Role | ''>('')
   const [page, setPage] = useState(1)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const { data: stats, isLoading: statsLoading } = useAdminStats()
-  const { data: usersData, isLoading: usersLoading } = useAdminUsers({ q, role: roleFilter, page })
+  const { data: usersData, isLoading: usersLoading } = useAdminUsers({ q, role: roleFilter || undefined, page })
   const changeRole = useChangeUserRole()
   const deleteUser = useDeleteUser()
 
@@ -67,13 +67,13 @@ export function AdminPage() {
             <>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 <StatCard icon={<Users size={20} />} label="Tổng người dùng"
-                  value={stats.users.total} sub={`+${stats.users.newThisMonth} tháng này`} />
+                  value={stats.users?.total ?? 0} sub={`+${stats.users?.newThisMonth ?? 0} tháng này`} />
                 <StatCard icon={<BookOpen size={20} />} label="Tổng truyện"
-                  value={stats.stories.total} sub={`+${stats.stories.newThisMonth} tháng này`} />
+                  value={stats.stories?.total ?? 0} sub={`+${stats.stories?.newThisMonth ?? 0} tháng này`} />
                 <StatCard icon={<Eye size={20} />} label="Lượt đọc"
-                  value={stats.reads.total} sub={`${stats.reads.thisWeek} tuần này`} />
+                  value={stats.reads?.total ?? 0} sub={`${stats.reads?.thisWeek ?? 0} tuần này`} />
                 <StatCard icon={<MessageSquare size={20} />} label="Bình luận"
-                  value={stats.engagement.comments} />
+                  value={stats.engagement?.comments ?? 0} />
               </div>
 
               <div className="grid lg:grid-cols-2 gap-6">
@@ -132,7 +132,7 @@ export function AdminPage() {
           <div className="flex gap-3 mb-5 flex-wrap">
             <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }}
               placeholder="Tìm username / email…" className="input flex-1 min-w-48 max-w-72" />
-            <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(1) }}
+            <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value as Role | ''); setPage(1) }}
               className="input w-auto">
               <option value="">Tất cả vai trò</option>
               {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
@@ -168,7 +168,7 @@ export function AdminPage() {
                         <td className="py-3 pr-4">
                           <select
                             value={u.role}
-                            onChange={(e) => changeRole.mutate({ id: u.id, role: e.target.value })}
+                            onChange={(e) => changeRole.mutate({ id: u.id, role: e.target.value as Role })}
                             className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer ${ROLE_COLORS[u.role as Role]}`}
                           >
                             {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
