@@ -67,7 +67,6 @@ TokenResponse
 {
   user: User
   accessToken: T
-  refreshToken: T
 }
 
 User
@@ -160,7 +159,7 @@ Review
 Key
 {
   id: UUID
-  userId: UUID?
+  userSettingsId: UUID?
 
   label: T
   key: T
@@ -192,7 +191,7 @@ Key
 | --- | --- | --- |
 | `POST /api/auth/register` | Body: `username: T`, `email: T`, `name: T`, `password: T` | `201 TokenResponse`; `409/422 Error` |
 | `POST /api/auth/login` | Body: `identifier: T`, `password: T` | `200 TokenResponse`; `401 Error` |
-| `POST /api/auth/refresh` | Body: `refreshToken: T` | `200 TokenResponse`; `401 Error` |
+| `POST /api/auth/refresh` | None | `200 TokenResponse`; `401 Error` |
 | `POST /api/auth/logout` | None | `200 { message: T }` |
 | `POST /api/auth/forgot-password` | Body: `email: T` | `200 { message: T }` |
 | `POST /api/auth/reset-password` | Body: `token: T`, `newPassword: T` | `200 { message: T }`; `422 Error` |
@@ -203,10 +202,10 @@ Key
 | --- | --- | --- |
 | `GET /api/users/me` | None | `200 User` |
 | `PATCH /api/users/me` | Body: `name?: T`, `email?: T`, `bio?: T`, `avatarUrl?: T` | `200 User`; `409 Error` |
-| `POST /api/users/me/avatar` | Multipart: `file: binary` | `200 User`; `422 Error` |
-| `POST /api/users/me/avatar-from-url` | Body: `url: U` | `200 User`; `422 Error` |
+| `POST /api/users/me/avatar` | Multipart file upload; max 5 MB | `200 User`; `422 Error` |
+| `POST /api/users/me/avatar-from-url` | Body: `url: T` | `200 User`; `422 Error` |
 | `PATCH /api/users/me/password` | Body: `currentPassword: T`, `newPassword: T` | `200 { message: T }`; `401 Error` |
-| `PUT /api/users/me/settings` | Body: `ttsLanguage?: vi|en|zh`, `ttsVoice?: male|female`, `ttsSpeed?: N`, `autoNextChapter?: B` | `200 UserSettings` |
+| `PUT /api/users/me/settings` | Body: `ttsLanguage?: vi|en|zh`, `ttsVoice?: male|female`, `ttsSpeed?: N (0.5..5)`, `autoNextChapter?: B` | `200 UserSettings` |
 | `GET /api/users/me/comments` | None | `200 Comment[]` |
 | `GET /api/users/me/bookshelf` | None | `200 object[]` |
 | `GET /api/users/me/history` | None | `200 object[]` |
@@ -219,8 +218,8 @@ Key
 | `GET /api/stories/mine` | None | `200 Story[]` |
 | `GET /api/stories/:nameId` | Path: `nameId: T` | `200 Story`; `404 Error` |
 | `GET /api/stories/:nameId/chapters` | Path: `nameId: T` | `200 Chapter[]` |
-| `POST /api/stories` | Multipart: `name: T`, `nameId: T`, `description?: T`, `sourceNote?: T`, `posterUrl?: U`, `posterFile?: binary` | `201 Story`; `409 Error` |
-| `POST /api/stories/:id/poster` | Path: `id: I`; multipart: `posterFile|poster|file: binary` | `200 { posterUrl: T }`; `403/404/422 Error` |
+| `POST /api/stories` | Multipart: required `name`, `nameId`; optional `description`, `sourceNote`, `posterUrl`, `posterFile` | `201 Story`; `409 Error` |
+| `POST /api/stories/:id/poster` | Path: `id: I`; multipart image upload | `200 { posterUrl: T }`; `403/404/422 Error` |
 | `POST /api/stories/:id/poster-url` | Path: `id: I`; body: `url: U` | `200 { posterUrl: T }`; `403/404/422 Error` |
 | `PATCH /api/stories/:id` | Path: `id: I`; multipart: `name?: T`, `description?: T`, `sourceNote?: T`, `posterUrl?: U`, `posterFile?: binary` | `200 Story`; `403/404 Error` |
 | `DELETE /api/stories/:id` | Path: `id: I` | `204`; `403/404 Error` |
@@ -274,7 +273,7 @@ Key
 | Method and path | Request parameters | Response |
 | --- | --- | --- |
 | `GET /api/tts/keys/active` | None | `200 { keys: T[] }` |
-| `GET /api/tts/keys` | None | `200 Key[]` |
+| `GET /api/tts/keys` | None | `200 Key[]` (`userSettingsId` identifies the owner) |
 | `POST /api/tts/keys` | Body: `label: T`, `key: T` | `201 Key`; `422 Error` |
 | `PATCH /api/tts/keys/:id` | Path: `id: UUID`; body: `label?: T`, `key?: T`, `status?: personal|public|hidden` | `200 Key`; `403/404 Error` |
 | `DELETE /api/tts/keys/:id` | Path: `id: UUID` | `204`; `403/404 Error` |
