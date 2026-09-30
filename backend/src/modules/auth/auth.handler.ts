@@ -106,7 +106,13 @@ export async function login(
   setRefreshCookie(reply, refreshToken)
 
   return reply.send({
-    user: { id: user.id, username: user.username, name: user.name, role: user.role },
+    user: {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      avatarUrl: user.avatarUrl,
+      role: user.role,
+    },
     accessToken,
   })
 }

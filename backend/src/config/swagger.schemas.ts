@@ -48,6 +48,7 @@ export const AuthResponse = {
         username: { type: 'string' },
         name:     { type: 'string' },
         email:    { type: 'string' },
+        avatarUrl: { type: 'string', nullable: true },
         role:     { type: 'string', enum: ['user', 'author', 'admin'] },
       },
     },
