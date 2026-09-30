@@ -517,6 +517,19 @@ export const useUpdateRVKey = () => {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; label?: string; key?: string; status?: RvApiKey['status'] }) =>
       api.patch<RvApiKey>(`/tts/keys/${id}`, data).then((r) => r.data),
+    onMutate: async ({ id, ...data }) => {
+      await qc.cancelQueries({ queryKey: ['rv-keys'] })
+      const previousKeys = qc.getQueryData<RvApiKey[]>(['rv-keys'])
+
+      qc.setQueryData<RvApiKey[]>(['rv-keys'], (keys) =>
+        keys?.map((key) => key.id === id ? { ...key, ...data } : key),
+      )
+
+      return { previousKeys }
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousKeys) qc.setQueryData(['rv-keys'], context.previousKeys)
+    },
     onSuccess: () => invalidateRVKeys(qc),
   })
 }
