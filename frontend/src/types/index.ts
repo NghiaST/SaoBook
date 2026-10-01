@@ -1,7 +1,7 @@
 // src/types/index.ts
 
 export type Role = 'user' | 'author' | 'admin'
-export type TTSLanguage = 'vi' | 'en' | 'zh'
+export type TTSLanguage = 'vi' | 'en'
 export type TTSVoice = 'male' | 'female'
 export type UITheme = 'light' | 'dark'
 export type TTSMode = 'speechsynthesis' | 'responsivevoice'

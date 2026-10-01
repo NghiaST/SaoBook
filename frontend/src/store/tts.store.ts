@@ -63,7 +63,7 @@ function pickSSVoice(lang: string, gender: 'male' | 'female', voiceName?: string
     const named = voices.find((v) => v.name === voiceName)
     if (named) return named
   }
-  const langCode = lang === 'vi' ? 'vi' : lang === 'zh' ? 'zh' : 'en'
+  const langCode = lang === 'vi' ? 'vi' : 'en'
   const genderHint = gender === 'female'
     ? ['female', 'woman', 'zira', 'samantha', 'google us english']
     : ['male', 'man', 'david', 'alex', 'google uk english male']
@@ -108,7 +108,7 @@ export const useTTSStore = create<TTSState>()((set, get) => {
     const { lang, voice, voiceName, speed, pitch = 1, volume } = settings
     const para = paragraphs[startIndex]
     const utterance = new SpeechSynthesisUtterance(para)
-    utterance.lang = lang === 'vi' ? 'vi-VN' : lang === 'zh' ? 'zh-CN' : 'en-US'
+    utterance.lang = lang === 'vi' ? 'vi-VN' : 'en-US'
     utterance.rate = speed
     utterance.pitch = pitch
     utterance.volume = volume

@@ -1,11 +1,12 @@
 // src/store/settings.store.ts
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import type { TTSMode, UserSettings } from '@/types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type UITheme = 'light' | 'dark'
-export type TTSLanguage = 'vi' | 'en' | 'zh'
+export type TTSLanguage = 'vi' | 'en'
 export type TTSVoice = 'male' | 'female'
 export { type TTSMode }
 
@@ -89,13 +90,10 @@ export interface TTSSettings {
 export const DEFAULT_RV_VOICE_NAMES: Record<TTSLanguage, Record<TTSVoice, string>> = {
   vi: { male: 'Vietnamese Male', female: 'Vietnamese Female' },
   en: { male: 'US English Male', female: 'US English Female' },
-  zh: { male: 'Chinese Male', female: 'Chinese Female' },
 }
 
 export function userSettingsToTTS(userSettings: UserSettings): Partial<TTSSettings> {
-  const language = userSettings.rvSettings.language.startsWith('zh')
-    ? 'zh'
-    : userSettings.rvSettings.language.startsWith('en') ? 'en' : 'vi'
+  const language = userSettings.rvSettings.language.startsWith('en') ? 'en' : 'vi'
   const voice = userSettings.rvSettings.gender === 'male' || userSettings.rvSettings.gender === 'm'
     ? 'male'
     : 'female'
@@ -121,7 +119,7 @@ export function ttsToUserSettings(settings: Pick<
     selectedRvApiKeyId: settings.selectedRvApiKeyId,
     rvSettings: {
       voiceName: settings.ttsVoiceName || DEFAULT_RV_VOICE_NAMES[settings.ttsLanguage][settings.ttsVoice],
-      language: settings.ttsLanguage === 'zh' ? 'zh-CN' : settings.ttsLanguage === 'en' ? 'en-US' : 'vi',
+      language: settings.ttsLanguage === 'en' ? 'en-US' : 'vi-VN',
       gender: settings.ttsVoice,
       pitch: settings.ttsPitch,
     },
@@ -178,7 +176,7 @@ const defaultSavedColors: Record<UITheme, { bgColor: string; textColor: string }
   dark:  { bgColor: '#1A1510', textColor: '#A4A15B' },
 }
 
-export const useSettingsStore = create<SettingsState>()((set, get) => ({
+export const useSettingsStore = create<SettingsState>()(persist((set, get) => ({
       ...defaults,
       savedColors: defaultSavedColors,
 
@@ -242,4 +240,27 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
         set({ ...defaults, savedColors: defaultSavedColors })
         get().applyToDOM()
       },
+    }), {
+      name: 'saobook-settings',
+      partialize: (state) => ({
+        theme: state.theme,
+        bgColor: state.bgColor,
+        textColor: state.textColor,
+        fontFamily: state.fontFamily,
+        fontSize: state.fontSize,
+        lineHeight: state.lineHeight,
+        readerMaxWidth: state.readerMaxWidth,
+        ttsMode: state.ttsMode,
+        ttsLanguage: state.ttsLanguage,
+        ttsVoice: state.ttsVoice,
+        ttsSpeed: state.ttsSpeed,
+        ttsPitch: state.ttsPitch,
+        ttsVolume: state.ttsVolume,
+        autoNextChapter: state.autoNextChapter,
+        sleepTimerMinutes: state.sleepTimerMinutes,
+        ttsVoiceName: state.ttsVoiceName,
+        selectedRvApiKeyId: state.selectedRvApiKeyId,
+        savedColors: state.savedColors,
+      }),
+      onRehydrateStorage: () => (state) => state?.applyToDOM(),
     }))

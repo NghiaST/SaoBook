@@ -1,9 +1,9 @@
 // src/pages/SettingsPage.tsx
 import { useEffect, useState } from 'react'
 import { useSettingsStore, THEME_BG_OPTIONS, FONT_FAMILY_OPTIONS, ttsToUserSettings, userSettingsToPersistedSnapshot } from '@/store/settings.store'
-import { useRVKeys, useTTSVoices, useUpdateSettings } from '@/lib/queries'
+import { useCreateRVKey, useDeleteRVKey, useRVKeys, useTTSVoices, useUpdateSettings } from '@/lib/queries'
 import { useAuthStore } from '@/store/auth.store'
-import { CheckCircle2, Moon, Sun, RotateCcw, Mic, Speaker } from 'lucide-react'
+import { CheckCircle2, Moon, Sun, RotateCcw, Mic, Speaker, Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // ── Voices từ SpeechSynthesis ─────────────────────────────────────────────────
@@ -13,7 +13,7 @@ function useAvailableVoices(lang: string) {
 
   useEffect(() => {
     const load = () => {
-      const langCode = lang === 'vi' ? 'vi' : lang === 'zh' ? 'zh' : 'en'
+      const langCode = lang === 'vi' ? 'vi' : 'en'
       const all = window.speechSynthesis.getVoices()
       const filtered = all.filter((v) => v.lang.startsWith(langCode))
       setVoices(filtered.length > 0 ? filtered : all.slice(0, 5))
@@ -114,8 +114,10 @@ export function SettingsPage() {
   const settings = useSettingsStore()
   const updateSettings = useUpdateSettings()
   const { data: rvKeys = [] } = useRVKeys()
+  const createRvKey = useCreateRVKey()
+  const deleteRvKey = useDeleteRVKey()
   const { data: rvVoices = [], isError: rvVoicesError } = useTTSVoices(
-    settings.ttsLanguage,
+    settings.ttsLanguage === 'en' ? 'en-US' : 'vi-VN',
     settings.ttsMode === 'responsivevoice',
   )
 
@@ -126,6 +128,28 @@ export function SettingsPage() {
   const selectableRvKeys = rvKeys.filter(
     (key) => key.status === 'public' || (key.status === 'personal' && key.userSettingsId === currentUser?.id),
   )
+  const personalRvKeys = rvKeys.filter((key) => key.status === 'personal' && key.userSettingsId === currentUser?.id)
+  const [newKeyLabel, setNewKeyLabel] = useState('')
+  const [newKeyValue, setNewKeyValue] = useState('')
+  const [newKeySecret, setNewKeySecret] = useState('')
+
+  const addPersonalKey = async () => {
+    if (!newKeyLabel.trim() || !newKeyValue.trim()) return
+    const created = await createRvKey.mutateAsync({
+      label: newKeyLabel.trim(),
+      key: newKeyValue.trim(),
+      secret: newKeySecret.trim() || undefined,
+    })
+    settings.updateTTS({ selectedRvApiKeyId: created.id })
+    setNewKeyLabel('')
+    setNewKeyValue('')
+    setNewKeySecret('')
+  }
+
+  const removePersonalKey = (id: string) => {
+    if (settings.selectedRvApiKeyId === id) settings.updateTTS({ selectedRvApiKeyId: null })
+    deleteRvKey.mutate(id)
+  }
 
   const save = () => {
     if (!isAuthenticated) return
@@ -310,7 +334,6 @@ export function SettingsPage() {
           >
             <option value="vi">🇻🇳 Tiếng Việt</option>
             <option value="en">🇬🇧 English</option>
-            <option value="zh">🇨🇳 中文</option>
           </select>
         </div>
 
@@ -389,6 +412,45 @@ export function SettingsPage() {
                 ))}
               </select>
             </div>
+            <div className="border border-[var(--border)] rounded-lg p-3 space-y-3">
+              <div>
+                <p className="text-sm font-medium text-[var(--text)]">Personal API keys</p>
+                <p className="text-xs text-[var(--text-subtle)] mt-1">
+                  Bạn có thể thêm nhiều key cá nhân, nhưng chỉ một key được dùng tại một thời điểm.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <input className="input text-sm" value={newKeyLabel} onChange={(e) => setNewKeyLabel(e.target.value)} placeholder="Tên key" />
+                <input className="input text-sm font-mono" value={newKeyValue} onChange={(e) => setNewKeyValue(e.target.value)} placeholder="API key" />
+                <input className="input text-sm font-mono" type="password" value={newKeySecret} onChange={(e) => setNewKeySecret(e.target.value)} placeholder="API secret" />
+              </div>
+              <button
+                type="button"
+                onClick={addPersonalKey}
+                disabled={createRvKey.isPending || !newKeyLabel.trim() || !newKeyValue.trim()}
+                className="btn-outline text-sm flex items-center gap-1.5"
+              >
+                <Plus size={14} /> Thêm key cá nhân
+              </button>
+              {personalRvKeys.length > 0 && (
+                <div className="space-y-1.5">
+                  {personalRvKeys.map((key) => (
+                    <div key={key.id} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="truncate text-[var(--text-muted)]">{key.label}</span>
+                      <button
+                        type="button"
+                        onClick={() => removePersonalKey(key.id)}
+                        disabled={deleteRvKey.isPending}
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded"
+                        title="Xóa key cá nhân"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="text-xs bg-[var(--bg-alt)] rounded-lg p-3 text-[var(--text-muted)] leading-relaxed">
               <strong>ResponsiveVoice</strong> dùng key đã chọn để tạo audio qua backend.
               {rvVoicesError ? ' Không thể tải danh sách giọng lúc này.' : ` ${rvVoices.length} giọng khả dụng.`}
@@ -398,10 +460,10 @@ export function SettingsPage() {
 
         {/* Speed */}
         <SliderRow
-          label="Tốc độ" value={settings.ttsSpeed} min={0.5} max={2} step={0.05}
+          label="Tốc độ" value={settings.ttsSpeed} min={0.5} max={5} step={0.05}
           display={`${settings.ttsSpeed.toFixed(2)}x`}
           onChange={(v) => settings.updateTTS({ ttsSpeed: v })}
-          leftLabel="0.5x (chậm)" rightLabel="2.0x (nhanh)"
+          leftLabel="0.5x (chậm)" rightLabel="5.0x (nhanh)"
         />
 
         {/* Pitch */}

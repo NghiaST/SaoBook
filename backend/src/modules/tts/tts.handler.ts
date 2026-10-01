@@ -125,7 +125,28 @@ export async function streamAudio(request: AudioRequest, reply: FastifyReply) {
 }
 
 export async function listVoices(request: VoiceRequest, reply: FastifyReply) {
-  const { apiKey, apiSecret } = config.responsiveVoice
+  const { id: userId } = request.user as AuthUser
+  const settings = await prisma.userSettings.upsert({
+    where: { userId },
+    create: { userId, rvSettings: { create: defaultRvSettings } },
+    update: {},
+    select: { userId: true, selectedRvApiKeyId: true },
+  })
+  const storedKey = settings.selectedRvApiKeyId
+    ? await prisma.rvApiKey.findFirst({
+      where: {
+        id: settings.selectedRvApiKeyId,
+        OR: [{ status: 'public' }, { status: 'personal', userSettingsId: settings.userId }],
+      },
+      select: { key: true, secret: true },
+    })
+    : await prisma.rvApiKey.findFirst({
+      where: { OR: [{ status: 'public' }, { status: 'personal', userSettingsId: settings.userId }] },
+      orderBy: { createdAt: 'asc' },
+      select: { key: true, secret: true },
+    })
+  const apiKey = storedKey?.key ?? config.responsiveVoice.apiKey
+  const apiSecret = storedKey?.secret || config.responsiveVoice.apiSecret
 
   if (!apiKey || !apiSecret) {
     throw new AppError(
