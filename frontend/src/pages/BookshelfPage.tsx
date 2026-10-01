@@ -30,7 +30,7 @@ function Poster({ src, alt }: { src?: string | null; alt: string }) {
 
   if (!src || failed) {
     return (
-      <div className="w-14 h-20 rounded-lg bg-[var(--bg-alt)] flex items-center justify-center">
+      <div className="w-10 h-14 rounded-lg bg-[var(--bg-alt)] flex items-center justify-center">
         <BookOpen size={18} className="text-[var(--text-subtle)]" />
       </div>
     )
@@ -42,7 +42,7 @@ function Poster({ src, alt }: { src?: string | null; alt: string }) {
       alt={alt}
       loading="lazy"
       onError={() => setFailed(true)}
-      className="w-14 h-20 rounded-lg object-cover"
+      className="w-10 h-14 rounded-lg object-cover"
     />
   )
 }
@@ -80,7 +80,7 @@ function HistoryItem({ item }: { item: any }) {
       <div className="flex-1 min-w-0">
         <Link
           to={`/stories/${story.nameId}`}
-          className="font-display font-semibold text-[var(--text)] hover:text-accent transition-colors line-clamp-2 text-sm leading-snug block mb-1"
+          className="font-ui font-semibold text-xs hover:text-accent transition-colors line-clamp-2 text-sm leading-snug block"
         >
           {story.name}
         </Link>
@@ -88,7 +88,7 @@ function HistoryItem({ item }: { item: any }) {
         {chapterHref && lastChapter && (
           <Link
             to={chapterHref}
-            className="inline-flex items-center gap-1 text-xs text-accent hover:underline font-ui mb-1.5"
+            className="inline-flex items-center gap-1 text-xs text-accent hover:underline font-ui"
           >
             <BookOpen size={11} />
             Đã đọc:{' '}
@@ -185,7 +185,7 @@ function BookshelfTab() {
             <div className="flex-1 min-w-0">
               <Link
                 to={`/stories/${item.story.nameId}`}
-                className="font-display font-semibold text-[var(--text)] hover:text-accent transition-colors line-clamp-2 text-sm leading-snug block mb-1"
+                className="font-ui font-semibold text-xs hover:text-accent transition-colors line-clamp-2 text-sm leading-snug block"
               >
                 {item.story.name}
               </Link>

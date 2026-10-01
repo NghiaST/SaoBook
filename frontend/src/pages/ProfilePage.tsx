@@ -242,7 +242,7 @@ export function ProfilePage() {
       {/* ── Avatar & Info ─────────────────────────────────────────── */}
       <div className="card p-6 mb-6">
         <div className="flex items-start gap-5">
-          <Avatar name={user?.name ?? ''} src={me?.avatarUrl ?? user?.avatarUrl} size="lg" />
+          <Avatar name={user?.name ?? ''} src={user?.avatarUrl} size="lg" />
           <div className="flex-1 min-w-0">
             <p className="font-display text-xl font-bold text-[var(--text)] mb-0.5">{user?.name}</p>
             <p className="text-sm text-[var(--text-subtle)] font-ui mb-1">@{user?.username}</p>

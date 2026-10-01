@@ -8,7 +8,7 @@ import type { Role } from '@/types'
 import { RVKeysPanel } from '@/features/admin/RVKeysPanel'
 
 const ROLES: Role[] = ['user', 'author', 'admin']
-const ROLE_LABELS: Record<Role, string> = { user: 'Người dùng', author: 'Tác giả', admin: 'Admin' }
+const ROLE_LABELS: Record<Role, string> = { user: 'User', author: 'Author', admin: 'Admin' }
 const ROLE_COLORS: Record<Role, string> = {
   user: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
   author: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
@@ -44,7 +44,7 @@ export function AdminPage() {
 
   return (
     <div className="page-container py-8">
-      <h1 className="section-title">Bảng quản trị</h1>
+      <h1 className="section-title">Admin Dashboard</h1>
 
       {/* Tabs */}
       <div className="border-b border-[var(--border)] flex gap-1 mb-8">
@@ -53,7 +53,7 @@ export function AdminPage() {
             className={`px-4 py-2.5 text-sm font-ui font-medium transition-colors border-b-2 -mb-px ${
               tab === t ? 'border-accent text-accent' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'
             }`}>
-            {t === 'stats' ? '📊 Thống kê' : t === 'users' ? '👥 Người dùng' : <><KeyRound size={14} className="inline mr-1" /> RV Keys</>}
+            {t === 'stats' ? '📊 Statistics' : t === 'users' ? '👥 Users' : <><KeyRound size={14} className="inline mr-1" /> RV Keys</>}
           </button>
         ))}
       </div>
@@ -66,13 +66,13 @@ export function AdminPage() {
           ) : stats ? (
             <>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <StatCard icon={<Users size={20} />} label="Tổng người dùng"
-                  value={stats.users?.total ?? 0} sub={`+${stats.users?.newThisMonth ?? 0} tháng này`} />
-                <StatCard icon={<BookOpen size={20} />} label="Tổng truyện"
-                  value={stats.stories?.total ?? 0} sub={`+${stats.stories?.newThisMonth ?? 0} tháng này`} />
-                <StatCard icon={<Eye size={20} />} label="Lượt đọc"
-                  value={stats.reads?.total ?? 0} sub={`${stats.reads?.thisWeek ?? 0} tuần này`} />
-                <StatCard icon={<MessageSquare size={20} />} label="Bình luận"
+                <StatCard icon={<Users size={20} />} label="Total Users"
+                  value={stats.users?.total ?? 0} sub={`+${stats.users?.newThisMonth ?? 0} this month`} />
+                <StatCard icon={<BookOpen size={20} />} label="Total Stories"
+                  value={stats.stories?.total ?? 0} sub={`+${stats.stories?.newThisMonth ?? 0} this month`} />
+                <StatCard icon={<Eye size={20} />} label="Reads"
+                  value={stats.reads?.total ?? 0} sub={`${stats.reads?.thisWeek ?? 0} this week`} />
+                <StatCard icon={<MessageSquare size={20} />} label="Comments"
                   value={stats.engagement?.comments ?? 0} />
               </div>
 
@@ -80,7 +80,7 @@ export function AdminPage() {
                 {/* Top by reads */}
                 <div className="card p-5">
                   <h3 className="font-display font-semibold text-[var(--text)] mb-4 flex items-center gap-2">
-                    <TrendingUp size={18} className="text-accent" /> Top đọc nhiều nhất
+                    <TrendingUp size={18} className="text-accent" /> Most Read
                   </h3>
                   <div className="space-y-3">
                     {stats.topByReads?.slice(0, 8).map((s: any, i: number) => (
@@ -88,7 +88,7 @@ export function AdminPage() {
                         <span className="text-xs font-mono text-[var(--text-subtle)] w-5">{i + 1}</span>
                         <p className="flex-1 text-sm font-ui text-[var(--text)] truncate">{s.name}</p>
                         <span className="text-xs text-[var(--text-subtle)] shrink-0">
-                          {s._count?.chapterReadLogs?.toLocaleString()} lượt
+                          {s._count?.chapterReadLogs?.toLocaleString()} reads
                         </span>
                       </div>
                     ))}
@@ -98,7 +98,7 @@ export function AdminPage() {
                 {/* Rating distribution */}
                 <div className="card p-5">
                   <h3 className="font-display font-semibold text-[var(--text)] mb-4 flex items-center gap-2">
-                    <Star size={18} className="text-accent" /> Phân bố đánh giá
+                    <Star size={18} className="text-accent" /> Rating Distribution
                   </h3>
                   <div className="space-y-3">
                     {[5, 4, 3, 2, 1].map((star) => {
@@ -131,10 +131,10 @@ export function AdminPage() {
           {/* Filters */}
           <div className="flex gap-3 mb-5 flex-wrap">
             <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }}
-              placeholder="Tìm username / email…" className="input flex-1 min-w-48 max-w-72" />
+              placeholder="Search username / email…" className="input flex-1 min-w-48 max-w-72" />
             <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value as Role | ''); setPage(1) }}
               className="input w-auto">
-              <option value="">Tất cả vai trò</option>
+              <option value="">All Roles</option>
               {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
             </select>
           </div>
@@ -144,13 +144,13 @@ export function AdminPage() {
           ) : (
             <>
               <p className="text-sm text-[var(--text-subtle)] mb-3 font-ui">
-                {usersData?.total ?? 0} người dùng
+                {usersData?.total ?? 0} users
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[var(--border)] text-left">
-                      {['Người dùng', 'Email', 'Vai trò', 'Ngày đăng ký', 'Thống kê', ''].map((h) => (
+                      {['User', 'Email', 'Role', 'Joined Date', 'Stats', ''].map((h) => (
                         <th key={h} className="pb-3 pr-4 font-ui font-medium text-[var(--text-muted)] whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -179,8 +179,8 @@ export function AdminPage() {
                         </td>
                         <td className="py-3 pr-4">
                           <div className="flex gap-2">
-                            <Badge>{u._count?.stories ?? 0} truyện</Badge>
-                            <Badge>{u._count?.chapterReadLogs ?? 0} đọc</Badge>
+                            <Badge>{u._count?.stories ?? 0} stories</Badge>
+                            <Badge>{u._count?.chapterReadLogs ?? 0} reads</Badge>
                           </div>
                         </td>
                         <td className="py-3">
@@ -189,14 +189,14 @@ export function AdminPage() {
                               <Button size="sm" variant="danger"
                                 loading={deleteUser.isPending}
                                 onClick={() => deleteUser.mutate(u.id, { onSuccess: () => setConfirmDelete(null) })}>
-                                Xóa
+                                Delete
                               </Button>
-                              <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>Hủy</Button>
+                              <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>Cancel</Button>
                             </div>
                           ) : (
                             <button onClick={() => setConfirmDelete(u.id)}
                               className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all">
-                              Xóa
+                              Delete
                             </button>
                           )}
                         </td>
