@@ -25,7 +25,10 @@ export function ChapterReadPage() {
   } = useSettingsStore()
 
   const markRead = useMarkChapterRead()
-  const { stop, status, currentParagraphIndex, chapterId: ttsChapterId, play, pause, resume } = useTTSStore()
+  const {
+    stop, status, currentParagraphIndex, chapterId: ttsChapterId, play, pause, resume,
+    rvAudioStatuses, rvAudioTotal,
+  } = useTTSStore()
 
   const { data: chapter, isLoading } = useChapter(chapterId)
   const { data: chapters }           = useChapterList(nameId!)
@@ -43,6 +46,8 @@ export function ChapterReadPage() {
   const isPlaying        = isTTSThisChapter && status === 'playing'
   const isPaused         = isTTSThisChapter && status === 'paused'
   const ttsActive        = isTTSThisChapter && (isPlaying || isPaused)
+  const rvAudioLoaded = Object.values(rvAudioStatuses).filter((value) => value === 'loaded').length
+  const showRvProgress = ttsMode === 'responsivevoice' && isTTSThisChapter && rvAudioTotal > 0
 
   const scrollHidden = useScrollHide(20)
 
@@ -256,6 +261,18 @@ export function ChapterReadPage() {
           </div>
         )}
       </div>
+
+      {showRvProgress && (
+        <div className="mx-auto mt-3 w-[min(92%,48rem)] rounded-lg border border-[var(--border)] bg-[var(--bg-alt)] px-3 py-2 text-xs text-[var(--text-muted)]">
+          <div className="mb-1 flex items-center justify-between gap-3">
+            <span>Đang tải audio</span>
+            <span>{rvAudioLoaded}/{rvAudioTotal}</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-[var(--border)]" role="progressbar" aria-valuemin={0} aria-valuemax={rvAudioTotal} aria-valuenow={rvAudioLoaded}>
+            <div className="h-full rounded-full bg-accent transition-[width] duration-300" style={{ width: `${(rvAudioLoaded / rvAudioTotal) * 100}%` }} />
+          </div>
+        </div>
+      )}
 
       {/* ── Content ─────────────────────────────────────────────────────── */}
       <div className="reader-content-wrap" style={{ maxWidth: readerMaxWidth }}>

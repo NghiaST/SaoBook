@@ -4,6 +4,7 @@ import api from '@/lib/api'
 
 export type TTSStatus = 'idle' | 'playing' | 'paused' | 'loading'
 export type TTSMode = 'speechsynthesis' | 'responsivevoice'
+export type RvAudioStatus = 'idle' | 'loading' | 'loaded' | 'error'
 
 type PlaybackSettings = {
   mode: TTSMode
@@ -31,6 +32,8 @@ interface TTSState {
   sleepTimer: ReturnType<typeof setTimeout> | null
   sleepTimerRemaining: number
   sleepTimerInterval: ReturnType<typeof setInterval> | null
+  rvAudioStatuses: Record<number, RvAudioStatus>
+  rvAudioTotal: number
 
   play: (
     text: string,
@@ -74,8 +77,11 @@ function splitToParagraphs(text: string): string[] {
 export const useTTSStore = create<TTSState>()((set, get) => {
   let playbackToken = 0
   let rvAbortController: AbortController | null = null
-  let rvRequests = new Map<number, Promise<Blob>>()
-  const RV_PREFETCH_WINDOW = 4
+  let rvEntries = new Map<number, { status: RvAudioStatus; blob?: Blob; promise?: Promise<Blob> }>()
+  let rvQueue: number[] = []
+  let rvActiveRequests = 0
+  let rvParagraphs: string[] = []
+  const RV_CONCURRENCY = 6
 
   function clearAudio() {
     const audio = get().audio
@@ -89,7 +95,15 @@ export const useTTSStore = create<TTSState>()((set, get) => {
   function cancelRvRequests() {
     rvAbortController?.abort()
     rvAbortController = null
-    rvRequests.clear()
+    rvEntries.clear()
+    rvQueue = []
+    rvActiveRequests = 0
+    rvParagraphs = []
+    set({ rvAudioStatuses: {}, rvAudioTotal: 0 })
+  }
+
+  function setRvAudioStatus(index: number, status: RvAudioStatus) {
+    set((state) => ({ rvAudioStatuses: { ...state.rvAudioStatuses, [index]: status } }))
   }
 
   // ── SpeechSynthesis playback ────────────────────────────────────────────────
@@ -134,27 +148,76 @@ export const useTTSStore = create<TTSState>()((set, get) => {
   }
 
   // ── ResponsiveVoice playback through the backend ─────────────────────────────
-  function requestRvParagraph(index: number, paragraphs: string[], controller: AbortController) {
-    const existing = rvRequests.get(index)
-    if (existing) return existing
+  function pumpRvQueue() {
+    const controller = rvAbortController
+    if (!controller) return
 
-    const request = api.post<Blob>('/tts/audio', {
-      text: paragraphs[index],
-    }, {
-      responseType: 'blob',
-      signal: controller.signal,
-    }).then((response) => response.data)
+    while (rvActiveRequests < RV_CONCURRENCY && rvQueue.length > 0) {
+      const index = rvQueue.shift()!
+      const entry = rvEntries.get(index)
+      if (!entry || entry.status !== 'loading') continue
 
-    rvRequests.set(index, request)
-    void request.catch(() => undefined)
-    return request
+      rvActiveRequests += 1
+      const request = api.post<Blob>('/tts/audio', {
+        text: rvParagraphs[index],
+      }, {
+        responseType: 'blob',
+        signal: controller.signal,
+      }).then((response) => response.data)
+
+      entry.promise = request
+      request.then((blob) => {
+        if (controller.signal.aborted) return
+        entry.status = 'loaded'
+        entry.blob = blob
+        setRvAudioStatus(index, 'loaded')
+      }).catch(() => {
+        if (controller.signal.aborted) return
+        entry.status = 'error'
+        setRvAudioStatus(index, 'error')
+      }).finally(() => {
+        if (rvAbortController !== controller) return
+        rvActiveRequests -= 1
+        pumpRvQueue()
+      })
+    }
   }
 
-  function preloadRvWindow(startIndex: number, paragraphs: string[], controller: AbortController) {
-    const end = Math.min(paragraphs.length, startIndex + RV_PREFETCH_WINDOW)
-    for (let index = startIndex; index < end; index += 1) {
-      requestRvParagraph(index, paragraphs, controller)
+  function beginRvSession(paragraphs: string[]) {
+    cancelRvRequests()
+    rvAbortController = new AbortController()
+    rvParagraphs = paragraphs
+    rvQueue = paragraphs.map((_, index) => index)
+    rvEntries = new Map(paragraphs.map((_, index) => [index, { status: 'loading' as const }]))
+    set({
+      rvAudioStatuses: Object.fromEntries(paragraphs.map((_, index) => [index, 'loading'])),
+      rvAudioTotal: paragraphs.length,
+    })
+    pumpRvQueue()
+  }
+
+  function ensureRvParagraph(index: number): Promise<Blob> {
+    const entry = rvEntries.get(index)
+    if (!entry) return Promise.reject(new Error('Audio is not queued'))
+    if (entry.status === 'loaded' && entry.blob) return Promise.resolve(entry.blob)
+    if (entry.status === 'error') {
+      entry.status = 'loading'
+      setRvAudioStatus(index, 'loading')
+      rvQueue.push(index)
+      pumpRvQueue()
     }
+    if (entry.promise) return entry.promise
+
+    return new Promise((resolve, reject) => {
+      const waitForAudio = () => {
+        const current = rvEntries.get(index)
+        if (!current) return reject(new Error('Audio request was cancelled'))
+        if (current.status === 'loaded' && current.blob) return resolve(current.blob)
+        if (current.status === 'error') return reject(new Error('Audio request failed'))
+        window.setTimeout(waitForAudio, 50)
+      }
+      waitForAudio()
+    })
   }
 
   async function rvReadFrom(
@@ -177,12 +240,10 @@ export const useTTSStore = create<TTSState>()((set, get) => {
 
     set({ currentParagraphIndex: startIndex, status: 'playing' })
     settings.onParagraphChange?.(startIndex)
-    preloadRvWindow(startIndex, paragraphs, controller)
 
     try {
-      const blob = await requestRvParagraph(startIndex, paragraphs, controller)
+      const blob = await ensureRvParagraph(startIndex)
       if (token !== playbackToken || controller.signal.aborted) return
-      rvRequests.delete(startIndex)
 
       const url = URL.createObjectURL(blob)
       const audio = new Audio(url)
@@ -233,13 +294,14 @@ export const useTTSStore = create<TTSState>()((set, get) => {
     sleepTimer: null,
     sleepTimerRemaining: 0,
     sleepTimerInterval: null,
+    rvAudioStatuses: {},
+    rvAudioTotal: 0,
 
     play: (text, chapterId, settings) => {
       // Cancel any previous playback
       window.speechSynthesis.cancel()
       playbackToken++
       cancelRvRequests()
-      rvAbortController = new AbortController()
       clearAudio()
 
       const { sleepTimer, sleepTimerInterval } = get()
@@ -258,6 +320,7 @@ export const useTTSStore = create<TTSState>()((set, get) => {
         newSleepTimer = setTimeout(() => {
           window.speechSynthesis.cancel()
           playbackToken++
+          cancelRvRequests()
           clearAudio()
           const { sleepTimerInterval: iv } = get()
           if (iv) clearInterval(iv)
@@ -282,6 +345,8 @@ export const useTTSStore = create<TTSState>()((set, get) => {
         sleepTimerRemaining: remaining,
         sleepTimerInterval: newInterval,
       })
+
+      if (settings.mode === 'responsivevoice') beginRvSession(paragraphs)
 
       readFrom(paragraphs, startIdx, chapterId, settings)
     },
@@ -332,8 +397,9 @@ export const useTTSStore = create<TTSState>()((set, get) => {
       if (!chapterId || paragraphs.length === 0) return
       window.speechSynthesis.cancel()
       playbackToken++
-      cancelRvRequests()
-      rvAbortController = new AbortController()
+      const sameRvSession = get().mode === 'responsivevoice' && rvParagraphs === paragraphs && rvAbortController !== null
+      if (settings.mode === 'responsivevoice' && !sameRvSession) beginRvSession(paragraphs)
+      if (settings.mode !== 'responsivevoice') cancelRvRequests()
       clearAudio()
       set({ currentParagraphIndex: index, status: 'playing' })
       readFrom(paragraphs, index, chapterId, {
