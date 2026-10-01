@@ -59,6 +59,14 @@ async function main() {
     const unauthenticated = await request('/tts/keys/active', { method: 'GET' })
     expectStatus(unauthenticated, 401, 'unauthenticated active keys')
 
+    const unauthenticatedVoices = await request('/tts/voices', { method: 'GET' })
+    expectStatus(unauthenticatedVoices, 401, 'unauthenticated voice list')
+
+    const unauthenticatedAudio = await request('/tts/audio', {
+      method: 'POST', body: { text: 'authentication test' },
+    })
+    expectStatus(unauthenticatedAudio, 401, 'unauthenticated audio')
+
     const created = await request('/tts/keys', {
       method: 'POST', token: adminToken, body: { label, key },
     })
@@ -84,6 +92,34 @@ async function main() {
     if (!userKeyId || createdUserKey.body.userSettingsId === null || createdUserKey.body.status !== 'personal') {
       throw new Error('create user TTS key: ownership was not returned')
     }
+
+    const unauthorizedSelection = await request('/users/me/settings', {
+      method: 'PUT', token: adminToken, body: { selectedRvApiKeyId: userKeyId },
+    })
+    expectStatus(unauthorizedSelection, 422, 'select another user\'s TTS key')
+
+    const selected = await request('/users/me/settings', {
+      method: 'PUT', token: userToken, body: { selectedRvApiKeyId: userKeyId },
+    })
+    expectStatus(selected, 200, 'select personal TTS key')
+    if (selected.body.selectedRvApiKeyId !== userKeyId) {
+      throw new Error('select personal TTS key: selected key was not persisted')
+    }
+
+    const hiddenSelected = await request(`/tts/keys/${userKeyId}`, {
+      method: 'PATCH', token: userToken, body: { status: 'hidden' },
+    })
+    expectStatus(hiddenSelected, 200, 'hide selected TTS key')
+
+    const audioWithHiddenSelection = await request('/tts/audio', {
+      method: 'POST', token: userToken, body: { text: 'hidden selection test' },
+    })
+    expectStatus(audioWithHiddenSelection, 422, 'audio with hidden selected key')
+
+    const restoredSelected = await request(`/tts/keys/${userKeyId}`, {
+      method: 'PATCH', token: userToken, body: { status: 'personal' },
+    })
+    expectStatus(restoredSelected, 200, 'restore selected TTS key')
 
     const updated = await request(`/tts/keys/${keyId}`, {
       method: 'PATCH', token: adminToken, body: { label: `${label} Updated`, status: 'hidden' },
