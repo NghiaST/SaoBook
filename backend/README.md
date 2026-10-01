@@ -285,8 +285,8 @@ Key
 | `POST /api/tts/audio` | Authenticated; body: `text: T` (1..4000 characters) | `200 audio/mpeg` stream; `422/502/503 Error` |
 | `GET /api/tts/keys/active` | Authenticated | `200 { keys: T[] }` |
 | `GET /api/tts/keys` | None | `200 Key[]` (`userSettingsId` identifies the owner) |
-| `POST /api/tts/keys` | Body: `label: T`, `key: T`, `secret?: T` | `201 Key`; `422 Error` |
-| `PATCH /api/tts/keys/:id` | Path: `id: UUID`; body: `label?: T`, `key?: T`, `secret?: T`, `status?: personal|public|hidden` | `200 Key`; `403/404 Error` |
+| `POST /api/tts/keys` | Body: `label: T`, `key: T`, `secret?: T` | `201 Key`; `409 Conflict` for duplicate key; `422 Error` |
+| `PATCH /api/tts/keys/:id` | Path: `id: UUID`; body: `label?: T`, `key?: T`, `secret?: T`, `status?: personal|public|hidden` | `200 Key`; `403/404 Error`; `409 Conflict` for duplicate key |
 | `DELETE /api/tts/keys/:id` | Path: `id: UUID` | `204`; `403/404 Error` |
 
 `/api/tts/voices` proxies the ResponsiveVoice v2 voice catalog and keeps provider credentials on the backend. `/api/tts/audio` calls ResponsiveVoice v2 `/text/synthesize` with only the text, resolved language, and resolved voice; it does not forward speed, pitch, volume, or other frontend settings.

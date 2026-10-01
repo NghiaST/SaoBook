@@ -77,6 +77,14 @@ async function main() {
       throw new Error('create TTS key: response does not match the created key')
     }
 
+    const duplicate = await request('/tts/keys', {
+      method: 'POST', token: adminToken, body: { label: `${label} Duplicate`, key },
+    })
+    expectStatus(duplicate, 409, 'create duplicate TTS key')
+    if (duplicate.body.error !== 'CONFLICT') {
+      throw new Error('create duplicate TTS key: expected CONFLICT response')
+    }
+
     const listed = await request('/tts/keys', { method: 'GET', token: adminToken })
     expectStatus(listed, 200, 'list TTS keys')
     if (!Array.isArray(listed.body) || !listed.body.some((item: any) => item.id === keyId)) {

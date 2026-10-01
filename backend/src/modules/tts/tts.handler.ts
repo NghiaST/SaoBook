@@ -1,9 +1,10 @@
 // src/modules/tts/tts.handler.ts
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { Readable } from 'node:stream'
+import { Prisma } from '@prisma/client'
 import prisma from '../../prisma/client'
 import { config } from '../../config'
-import { AppError, ForbiddenError, NotFoundError, ValidationError } from '../../common/exceptions'
+import { AppError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../common/exceptions'
 
 type AuthUser = { id: string; role: string }
 
@@ -146,16 +147,24 @@ export async function createKey(request: FastifyRequest, reply: FastifyReply) {
   const { label, key, secret } = request.body as { label: string; key: string; secret?: string }
   if (!label || !key) throw new ValidationError('label and key are required')
 
-  const created = await prisma.rvApiKey.create({
-    data: {
-      label,
-      key,
-      secret,
-      userSettingsId,
-      status: role === 'admin' ? 'public' : 'personal',
-    },
-    select: { id: true, userSettingsId: true, label: true, key: true, status: true, createdAt: true, updatedAt: true },
-  })
+  let created
+  try {
+    created = await prisma.rvApiKey.create({
+      data: {
+        label,
+        key,
+        secret,
+        userSettingsId,
+        status: role === 'admin' ? 'public' : 'personal',
+      },
+      select: { id: true, userSettingsId: true, label: true, key: true, status: true, createdAt: true, updatedAt: true },
+    })
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new ConflictError('ResponsiveVoice API key already exists')
+    }
+    throw error
+  }
   return reply.code(201).send(created)
 }
 
@@ -172,11 +181,19 @@ export async function updateKey(
   if (!existing) throw new NotFoundError('RvApiKey')
   if (role !== 'admin' && existing.userSettingsId !== userSettingsId) throw new ForbiddenError()
 
-  const updated = await prisma.rvApiKey.update({
-    where: { id },
-    data: body,
-    select: { id: true, userSettingsId: true, label: true, key: true, status: true, createdAt: true, updatedAt: true },
-  })
+  let updated
+  try {
+    updated = await prisma.rvApiKey.update({
+      where: { id },
+      data: body,
+      select: { id: true, userSettingsId: true, label: true, key: true, status: true, createdAt: true, updatedAt: true },
+    })
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new ConflictError('ResponsiveVoice API key already exists')
+    }
+    throw error
+  }
   return reply.send(updated)
 }
 

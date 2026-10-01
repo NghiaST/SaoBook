@@ -129,6 +129,7 @@ export async function ttsRoutes(app: FastifyInstance) {
       response: {
         201: KeySchema,
         401: { description: 'Authentication required', ...ErrorSchema },
+        409: { description: 'ResponsiveVoice API key already exists', ...ErrorSchema },
         422: { description: 'Invalid key data', ...ErrorSchema },
       },
     },
@@ -153,6 +154,7 @@ export async function ttsRoutes(app: FastifyInstance) {
       response: {
         200: KeySchema,
         401: { description: 'Authentication required', ...ErrorSchema },
+        409: { description: 'ResponsiveVoice API key already exists', ...ErrorSchema },
         403: { description: 'Key belongs to another user', ...ErrorSchema },
         404: { description: 'Key not found', ...ErrorSchema },
       },
