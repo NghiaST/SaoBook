@@ -4,6 +4,7 @@ import { requireRole } from '../../common/middleware/auth'
 import * as handler from './admin.handler'
 import {
   AdminUserListQuery, AdminStatsResponse, AdminUsersResponse,
+  AdminBookListQuery, AdminBooksResponse, StorySchema,
   ChangeRoleBody, ErrorSchema,
 } from '../../config/swagger.schemas'
 
@@ -15,6 +16,16 @@ const idParam = { type: 'object', properties: { id: { type: 'string' } } }
 type IdParam = { Params: { id: string } }
 
 export async function adminRoutes(app: FastifyInstance) {
+  app.get('/books', {
+    ...admin,
+    schema: {
+      ...tag, ...bearer,
+      summary: 'List books for management (admin only)',
+      querystring: AdminBookListQuery,
+      response: { 200: AdminBooksResponse },
+    },
+  }, handler.listBooks)
+
   app.get('/users', {
     ...admin,
     schema: {

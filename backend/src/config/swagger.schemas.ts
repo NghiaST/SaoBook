@@ -442,6 +442,26 @@ export const AdminUsersResponse = {
   },
 }
 
+export const AdminBookListQuery = {
+  type: 'object',
+  properties: {
+    q: { type: 'string' },
+    authorId: { type: 'string' },
+    page: { type: 'integer', minimum: 1, default: 1 },
+    limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+  },
+}
+
+export const AdminBooksResponse = {
+  type: 'object',
+  properties: {
+    books: { type: 'array', items: StorySchema },
+    total: { type: 'integer' },
+    page: { type: 'integer' },
+    limit: { type: 'integer' },
+  },
+}
+
 export const AdminStatsResponse = {
   type: 'object',
   properties: {

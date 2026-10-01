@@ -37,6 +37,42 @@ export async function listUsers(request: FastifyRequest, reply: FastifyReply) {
   return reply.send({ users, total, page: parseInt(page), limit: take })
 }
 
+export async function listBooks(request: FastifyRequest, reply: FastifyReply) {
+  const { q, authorId, page = '1', limit = '20' } = request.query as Record<string, string>
+  const currentPage = Math.max(1, parseInt(page, 10) || 1)
+  const take = Math.min(100, Math.max(1, parseInt(limit, 10) || 20))
+  const skip = (currentPage - 1) * take
+  const where = {
+    ...(q && { name: { contains: q, mode: 'insensitive' as const } }),
+    ...(authorId && { authorId }),
+  }
+
+  const [books, total] = await Promise.all([
+    prisma.story.findMany({
+      where,
+      skip,
+      take,
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        nameId: true,
+        name: true,
+        posterUrl: true,
+        description: true,
+        sourceNote: true,
+        authorId: true,
+        createdAt: true,
+        updatedAt: true,
+        author: { select: { id: true, username: true, name: true } },
+        _count: { select: { chapters: true, reviews: true, comments: true, chapterReadLogs: true } },
+      },
+    }),
+    prisma.story.count({ where }),
+  ])
+
+  return reply.send({ books, total, page: currentPage, limit: take })
+}
+
 export async function changeRole(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply,
