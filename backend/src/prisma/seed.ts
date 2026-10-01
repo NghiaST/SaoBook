@@ -83,8 +83,20 @@ async function main() {
 
     await prisma.userSettings.upsert({
       where: { userId: user.id },
-      update: {},
-      create: { userId: user.id },
+      update: {
+        rvSettings: {
+          upsert: {
+            update: {},
+            create: {},
+          },
+        },
+      },
+      create: { 
+        userId: user.id,
+        rvSettings: {
+          create: {},
+        },
+      },
     })
 
     console.log(`${role} user ready:`, user)
