@@ -5,6 +5,20 @@ import api from '@/lib/api'
 export type TTSStatus = 'idle' | 'playing' | 'paused' | 'loading'
 export type TTSMode = 'speechsynthesis' | 'responsivevoice'
 
+type PlaybackSettings = {
+  mode: TTSMode
+  lang: string
+  voice: 'male' | 'female'
+  voiceName?: string
+  speed: number
+  pitch: number
+  volume: number
+  sleepTimerMinutes: number
+  startParagraphIndex?: number
+  onEnd?: () => void
+  onParagraphChange?: (index: number) => void
+}
+
 interface TTSState {
   status: TTSStatus
   utterance: SpeechSynthesisUtterance | null
@@ -21,37 +35,14 @@ interface TTSState {
   play: (
     text: string,
     chapterId: number,
-    settings: {
-      mode: TTSMode
-      lang: string
-      voice: 'male' | 'female'
-      voiceName?: string
-      speed: number
-      pitch: number
-      volume: number
-      sleepTimerMinutes: number
-      startParagraphIndex?: number
-      onEnd?: () => void
-      onParagraphChange?: (index: number) => void
-    }
+    settings: PlaybackSettings
   ) => void
   pause: () => void
   resume: () => void
   stop: () => void
   jumpToParagraph: (
     index: number,
-    settings: {
-      mode: TTSMode
-      lang: string
-      voice: 'male' | 'female'
-      voiceName?: string
-      speed: number
-      pitch: number
-      volume: number
-      sleepTimerMinutes: number
-      onEnd?: () => void
-      onParagraphChange?: (index: number) => void
-    }
+    settings: PlaybackSettings
   ) => void
 }
 
@@ -82,6 +73,9 @@ function splitToParagraphs(text: string): string[] {
 
 export const useTTSStore = create<TTSState>()((set, get) => {
   let playbackToken = 0
+  let rvAbortController: AbortController | null = null
+  let rvRequests = new Map<number, Promise<Blob>>()
+  const RV_PREFETCH_WINDOW = 4
 
   function clearAudio() {
     const audio = get().audio
@@ -92,12 +86,18 @@ export const useTTSStore = create<TTSState>()((set, get) => {
     set({ audio: null })
   }
 
+  function cancelRvRequests() {
+    rvAbortController?.abort()
+    rvAbortController = null
+    rvRequests.clear()
+  }
+
   // ── SpeechSynthesis playback ────────────────────────────────────────────────
   function ssReadFrom(
     paragraphs: string[],
     startIndex: number,
     chapterId: number,
-    settings: Parameters<TTSState['play']>[2],
+    settings: PlaybackSettings,
   ) {
     if (startIndex >= paragraphs.length) {
       set({ status: 'idle', utterance: null, currentParagraphIndex: 0 })
@@ -134,31 +134,57 @@ export const useTTSStore = create<TTSState>()((set, get) => {
   }
 
   // ── ResponsiveVoice playback through the backend ─────────────────────────────
+  function requestRvParagraph(index: number, paragraphs: string[], controller: AbortController) {
+    const existing = rvRequests.get(index)
+    if (existing) return existing
+
+    const request = api.post<Blob>('/tts/audio', {
+      text: paragraphs[index],
+    }, {
+      responseType: 'blob',
+      signal: controller.signal,
+    }).then((response) => response.data)
+
+    rvRequests.set(index, request)
+    void request.catch(() => undefined)
+    return request
+  }
+
+  function preloadRvWindow(startIndex: number, paragraphs: string[], controller: AbortController) {
+    const end = Math.min(paragraphs.length, startIndex + RV_PREFETCH_WINDOW)
+    for (let index = startIndex; index < end; index += 1) {
+      requestRvParagraph(index, paragraphs, controller)
+    }
+  }
+
   async function rvReadFrom(
     paragraphs: string[],
     startIndex: number,
     chapterId: number,
-    settings: Parameters<TTSState['play']>[2],
+    settings: PlaybackSettings,
   ) {
     if (startIndex >= paragraphs.length) {
+      cancelRvRequests()
       set({ status: 'idle', utterance: null, currentParagraphIndex: 0 })
       settings.onEnd?.()
       return
     }
 
     const token = playbackToken
+    const controller = rvAbortController
+    if (!controller) return
     const { speed, volume } = settings
 
     set({ currentParagraphIndex: startIndex, status: 'playing' })
     settings.onParagraphChange?.(startIndex)
+    preloadRvWindow(startIndex, paragraphs, controller)
 
     try {
-      const response = await api.post<Blob>('/tts/audio', {
-        text: paragraphs[startIndex],
-      }, { responseType: 'blob' })
-      if (token !== playbackToken) return
+      const blob = await requestRvParagraph(startIndex, paragraphs, controller)
+      if (token !== playbackToken || controller.signal.aborted) return
+      rvRequests.delete(startIndex)
 
-      const url = URL.createObjectURL(response.data)
+      const url = URL.createObjectURL(blob)
       const audio = new Audio(url)
       audio.volume = volume
       audio.playbackRate = speed
@@ -166,6 +192,7 @@ export const useTTSStore = create<TTSState>()((set, get) => {
         URL.revokeObjectURL(url)
         const current = get()
         if (token !== playbackToken || current.status !== 'playing') return
+        set({ audio: null })
         void rvReadFrom(paragraphs, startIndex + 1, chapterId, settings)
       }
       audio.onerror = () => {
@@ -185,7 +212,7 @@ export const useTTSStore = create<TTSState>()((set, get) => {
     paragraphs: string[],
     startIndex: number,
     chapterId: number,
-    settings: Parameters<TTSState['play']>[2],
+    settings: PlaybackSettings,
   ) {
     if (settings.mode === 'responsivevoice') {
       rvReadFrom(paragraphs, startIndex, chapterId, settings)
@@ -211,6 +238,8 @@ export const useTTSStore = create<TTSState>()((set, get) => {
       // Cancel any previous playback
       window.speechSynthesis.cancel()
       playbackToken++
+      cancelRvRequests()
+      rvAbortController = new AbortController()
       clearAudio()
 
       const { sleepTimer, sleepTimerInterval } = get()
@@ -270,7 +299,8 @@ export const useTTSStore = create<TTSState>()((set, get) => {
     resume: () => {
       const { mode } = get()
       if (mode === 'responsivevoice') {
-        void get().audio?.play()
+        const audio = get().audio
+        if (audio) void audio.play()
       } else {
         window.speechSynthesis.resume()
       }
@@ -280,6 +310,7 @@ export const useTTSStore = create<TTSState>()((set, get) => {
     stop: () => {
       window.speechSynthesis.cancel()
       playbackToken++
+      cancelRvRequests()
       clearAudio()
       const { sleepTimer, sleepTimerInterval } = get()
       if (sleepTimer) clearTimeout(sleepTimer)
@@ -301,6 +332,8 @@ export const useTTSStore = create<TTSState>()((set, get) => {
       if (!chapterId || paragraphs.length === 0) return
       window.speechSynthesis.cancel()
       playbackToken++
+      cancelRvRequests()
+      rvAbortController = new AbortController()
       clearAudio()
       set({ currentParagraphIndex: index, status: 'playing' })
       readFrom(paragraphs, index, chapterId, {
