@@ -90,6 +90,7 @@ UserSettings
   ttsVoice: male | female
   ttsSpeed: N
   autoNextChapter: B
+  selectedRvApiKeyId: UUID?
 }
 
 Story
@@ -179,6 +180,14 @@ Key
 * `Story._count` contains optional aggregate counts for chapters and reviews.
 * `author`, `user`, and similar nested objects are represented as `object` here and should use dedicated types when their response shape is defined.
 
+#### Database and TTS provider
+
+* PostgreSQL is managed through Prisma migrations in `backend/prisma/migrations`.
+* `UserSettings.selectedRvApiKeyId` persists the user's selected ResponsiveVoice key and references `RvApiKey.id`.
+* A selected key must be public or personally owned by the authenticated user. If no key is selected, audio uses the oldest eligible key.
+* ResponsiveVoice v2 credentials are server-side environment variables: `RESPONSIVEVOICE_API_KEY` and `RESPONSIVEVOICE_API_SECRET`.
+* Per-key v2 secrets may also be stored with a key. Secrets are never returned by key or user APIs.
+
 ### Health
 
 | Method and path | Request parameters | Response |
@@ -205,7 +214,7 @@ Key
 | `POST /api/users/me/avatar` | Multipart file upload; max 5 MB | `200 User`; `422 Error` |
 | `POST /api/users/me/avatar-from-url` | Body: `url: T` | `200 User`; `422 Error` |
 | `PATCH /api/users/me/password` | Body: `currentPassword: T`, `newPassword: T` | `200 { message: T }`; `401 Error` |
-| `PUT /api/users/me/settings` | Body: `ttsLanguage?: vi|en|zh`, `ttsVoice?: male|female`, `ttsSpeed?: N (0.5..5)`, `autoNextChapter?: B` | `200 UserSettings` |
+| `PUT /api/users/me/settings` | Body: `ttsLanguage?: vi|en|zh`, `ttsVoice?: male|female`, `selectedRvApiKeyId?: UUID|null`, `ttsSpeed?: N (0.5..5)`, `autoNextChapter?: B` | `200 UserSettings` |
 | `GET /api/users/me/comments` | None | `200 Comment[]` |
 | `GET /api/users/me/bookshelf` | None | `200 object[]` |
 | `GET /api/users/me/history` | None | `200 object[]` |
@@ -272,8 +281,12 @@ Key
 
 | Method and path | Request parameters | Response |
 | --- | --- | --- |
-| `GET /api/tts/keys/active` | None | `200 { keys: T[] }` |
+| `GET /api/tts/voices` | Authenticated; query: `language?: T` | `200 Voice[]`; `502/503 Error` |
+| `POST /api/tts/audio` | Authenticated; body: `text: T` (1..4000 characters) | `200 audio/mpeg` stream; `422/502/503 Error` |
+| `GET /api/tts/keys/active` | Authenticated | `200 { keys: T[] }` |
 | `GET /api/tts/keys` | None | `200 Key[]` (`userSettingsId` identifies the owner) |
-| `POST /api/tts/keys` | Body: `label: T`, `key: T` | `201 Key`; `422 Error` |
-| `PATCH /api/tts/keys/:id` | Path: `id: UUID`; body: `label?: T`, `key?: T`, `status?: personal|public|hidden` | `200 Key`; `403/404 Error` |
+| `POST /api/tts/keys` | Body: `label: T`, `key: T`, `secret?: T` | `201 Key`; `422 Error` |
+| `PATCH /api/tts/keys/:id` | Path: `id: UUID`; body: `label?: T`, `key?: T`, `secret?: T`, `status?: personal|public|hidden` | `200 Key`; `403/404 Error` |
 | `DELETE /api/tts/keys/:id` | Path: `id: UUID` | `204`; `403/404 Error` |
+
+`/api/tts/voices` proxies the ResponsiveVoice v2 voice catalog and keeps provider credentials on the backend. `/api/tts/audio` calls ResponsiveVoice v2 `/text/synthesize` with only the text, resolved language, and resolved voice; it does not forward speed, pitch, volume, or other frontend settings.

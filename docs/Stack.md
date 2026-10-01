@@ -22,8 +22,10 @@ SaoBook is built as a full-stack application with a React frontend, a Fastify ba
 - Public URL support for served media content
 
 ## TTS and Voice Features
-- User-specific TTS settings for language, voice, speed, volume, auto-next-chapter, and sleep timer
-- ResponsiveVoice integration with per-user API keys
+- User-specific TTS settings for language, voice, speed, auto-next-chapter, and reader playback controls
+- Persisted ResponsiveVoice key selection per user, with public/personal/hidden key visibility
+- Backend proxy endpoints for v2 voice discovery and streamed audio synthesis
+- ResponsiveVoice v2 server credentials remain backend-only; synthesis forwards text, language, and voice without frontend speed or other provider attributes
 
 ## Deployment
 - Render for the backend service

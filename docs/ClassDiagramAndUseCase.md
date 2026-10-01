@@ -21,7 +21,9 @@ This document reflects the current implementation of SaoBook as represented in t
 - `ttsVoice`: `male | female`
 - `ttsSpeed`: float (default `1.0`)
 - `autoNextChapter`: boolean
+- `selectedRvApiKeyId`: string (UUID) | null (FK -> `RvApiKey`)
 - `rvApiKeys`: related `RvApiKey[]`
+- `selectedRvApiKey`: selected `RvApiKey` | null
 
 Reader UI preferences such as theme, colors, font family, font size, and line height are kept in frontend memory and are not persisted in this table.
 
@@ -86,6 +88,7 @@ Reader UI preferences such as theme, colors, font family, font size, and line he
 - `id`: string (UUID)
 - `userSettingsId`: string | null (FK -> UserSettings; null means an admin-managed global key)
 - `label`, `key`: string
+- `secret`: string | null (server-side ResponsiveVoice v2 credential)
 - `status`: `personal | public | hidden`
 - `createdAt`, `updatedAt`: datetime
 
@@ -93,6 +96,7 @@ Reader UI preferences such as theme, colors, font family, font size, and line he
 
 - `User` 1 -> 1 `UserSettings`
 - `UserSettings` 1 -> 0..* `RvApiKey`
+- `UserSettings` 0..1 -> 1 `RvApiKey` through `selectedRvApiKeyId`
 - `User` 1 -> 0..* `PasswordReset`, `Story`, `Comment`, `Review`, `Bookshelf`, `ReadingHistory`, `ChapterReadLog`
 - `Story` 1 -> 0..* `Chapter`, `Comment`, `Review`, `Bookshelf`, `ReadingHistory`, `ChapterReadLog`
 - `Chapter` 0..1 -> 0..* `Comment`, `ReadingHistory`, `ChapterReadLog`
@@ -232,8 +236,8 @@ Reader UI preferences such as theme, colors, font family, font size, and line he
 | **Actor** | User |
 | **Precondition** | User is reading a chapter |
 | **Postcondition** | Chapter text is played with selected controls |
-| **Main flow** | 1. Select language, voice, and speed.<br>2. Start browser or ResponsiveVoice playback.<br>3. Pause, resume, stop, auto-next, or use sleep timer. |
-| **Alternate flow** | TTS failure leaves normal chapter reading available; hidden keys are excluded. |
+| **Main flow** | 1. Select language and voice.<br>2. Select or store a ResponsiveVoice key when using backend playback.<br>3. Request `/api/tts/audio`; the backend streams ResponsiveVoice v2 audio.<br>4. Pause, resume, stop, auto-next, or use sleep timer. |
+| **Alternate flow** | TTS failure leaves normal chapter reading available; hidden or unauthorized keys are rejected. Backend synthesis forwards only text, language, and voice. |
 
 ### UC-11: Manage ResponsiveVoice Keys
 | Field | Value |
@@ -242,9 +246,9 @@ Reader UI preferences such as theme, colors, font family, font size, and line he
 | **Name** | Manage ResponsiveVoice Keys |
 | **Actor** | User, Admin |
 | **Precondition** | Actor is authenticated |
-| **Postcondition** | Keys are managed with correct visibility |
-| **Main flow** | 1. List available keys.<br>2. User manages own keys.<br>3. Admin creates/manages global keys.<br>4. Admin dashboard supports creation, editing, hiding, and deletion. |
-| **Alternate flow** | Unauthorized ownership changes return forbidden; invalid or missing keys return validation/not-found errors. |
+| **Postcondition** | Keys are managed with correct visibility and a user's selected key is persisted. |
+| **Main flow** | 1. List available keys.<br>2. User manages own keys and selects one through `UserSettings.selectedRvApiKeyId`.<br>3. Admin creates/manages global keys.<br>4. Admin dashboard supports creation, editing, hiding, and deletion. |
+| **Alternate flow** | A selected key must be public or personally owned; hidden, invalid, or unauthorized selections return validation errors. |
 
 ### UC-12: Customize Reader Settings
 | Field | Value |
@@ -272,9 +276,11 @@ Reader UI preferences such as theme, colors, font family, font size, and line he
 
 - Chapter text and images are stored in S3-compatible object storage; relational tables store metadata and URLs.
 - `UserSettings` stores server-backed TTS preferences and is created for every new user.
+- `UserSettings.selectedRvApiKeyId` identifies the key used for backend ResponsiveVoice v2 synthesis; unset selection falls back to the oldest eligible key.
 - Reader UI preferences are memory-only; theme-specific colors are retained while the frontend session is alive.
 - Access tokens are kept in frontend memory. Refresh tokens are HttpOnly cookies scoped to `/api/auth`.
 - `RvApiKey` ownership is through `UserSettings`; nullable ownership supports admin-managed global keys.
+- ResponsiveVoice v2 voice discovery uses `GET /api/tts/voices`; audio uses `POST /api/tts/audio` and provider credentials never reach the frontend.
 - Story rating averages and `_count` values are computed API projections, not persisted columns.
 
 ## System Boundary
