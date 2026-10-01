@@ -41,7 +41,6 @@ export function RVKeysPanel() {
   }
 
   const startEdit = (k: RvApiKey) => {
-    if (k.status === 'public') return
     setEditingId(k.id)
     setEditLabel(k.label)
     setEditKey('')
@@ -148,7 +147,6 @@ export function RVKeysPanel() {
               key={k.id}
               className={cn(
                 'card p-3 flex items-center gap-3 transition-all',
-                k.status === 'hidden' && 'opacity-50',
               )}
             >
               {/* Index badge */}
