@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store/auth.store'
 import type {
   User, Story, Chapter, Comment, MyComment, Review,
   BookshelfItem, ReadingHistoryItem, UserSettings, LoginResponse,
-  RvApiKey,
+  RvApiKey, ResponsiveVoice,
 } from '@/types'
 
 /** Only fire user-specific queries once we actually hold an access token. */
@@ -113,7 +113,7 @@ export const useUpdateSettings = () => {
   const qc = useQueryClient()
   return useMutation({
     // ttsLanguage: 'vi' | 'en' | 'zh', ttsVoice: 'male' | 'female',
-    // ttsSpeed: 0.5–5, autoNextChapter: boolean
+    // ttsSpeed: 0.5–5, autoNextChapter: boolean, selectedRvApiKeyId: string | null
     mutationFn: (data: Partial<UserSettings>) =>
       api.put<UserSettings>('/users/me/settings', data).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['me'] }),
@@ -471,17 +471,6 @@ export const useDeleteUser = () => {
 
 // ── TTS / ResponsiveVoice Keys ────────────────────────────────────────────────
 
-/** Public keys + the current user's personal keys. Requires auth (401 for guests). */
-export const useRVActiveKeys = (enabled = true) => {
-  const isAuthenticated = useIsAuthenticated()
-  return useQuery({
-    queryKey: ['rv-keys-active'],
-    queryFn: () => api.get<{ keys: string[] }>('/tts/keys/active').then((r) => r.data.keys),
-    enabled: enabled && isAuthenticated,
-    staleTime: 5 * 60 * 1000, // 5 min cache
-  })
-}
-
 /**
  * Regular users get their own + global keys; admins get all keys.
  * (Not admin-only, so any logged-in user can manage their personal keys.)
@@ -495,18 +484,27 @@ export const useRVKeys = () => {
   })
 }
 
+export const useTTSVoices = (language?: string, enabled = true) => {
+  const isAuthenticated = useIsAuthenticated()
+  return useQuery({
+    queryKey: ['tts-voices', language],
+    queryFn: () => api.get<ResponsiveVoice[]>('/tts/voices', { params: language ? { language } : {} }).then((r) => r.data),
+    enabled: enabled && isAuthenticated,
+    staleTime: 30 * 60 * 1000,
+  })
+}
+
 /** Backward-compatible alias */
 export const useAdminRVKeys = useRVKeys
 
 const invalidateRVKeys = (qc: ReturnType<typeof useQueryClient>) => {
   qc.invalidateQueries({ queryKey: ['rv-keys'] })
-  qc.invalidateQueries({ queryKey: ['rv-keys-active'] })
 }
 
 export const useCreateRVKey = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: { label: string; key: string }) =>
+    mutationFn: (data: { label: string; key: string; secret?: string }) =>
       api.post<RvApiKey>('/tts/keys', data).then((r) => r.data),
     onSuccess: () => invalidateRVKeys(qc),
   })
@@ -515,7 +513,7 @@ export const useCreateRVKey = () => {
 export const useUpdateRVKey = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; label?: string; key?: string; status?: RvApiKey['status'] }) =>
+    mutationFn: ({ id, ...data }: { id: string; label?: string; key?: string; secret?: string; status?: RvApiKey['status'] }) =>
       api.patch<RvApiKey>(`/tts/keys/${id}`, data).then((r) => r.data),
     onMutate: async ({ id, ...data }) => {
       await qc.cancelQueries({ queryKey: ['rv-keys'] })

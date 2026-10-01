@@ -1,9 +1,6 @@
 // src/store/tts.store.ts
 import { create } from 'zustand'
-import {
-  rvSpeak, rvCancel, rvPause, rvResume,
-  prefetchAllParagraphs, setRVKeys,
-} from '@/features/tts/rv.service'
+import api from '@/lib/api'
 
 export type TTSStatus = 'idle' | 'playing' | 'paused' | 'loading'
 export type TTSMode = 'speechsynthesis' | 'responsivevoice'
@@ -11,6 +8,7 @@ export type TTSMode = 'speechsynthesis' | 'responsivevoice'
 interface TTSState {
   status: TTSStatus
   utterance: SpeechSynthesisUtterance | null
+  audio: HTMLAudioElement | null
   currentParagraphIndex: number
   text: string
   paragraphs: string[]
@@ -55,8 +53,6 @@ interface TTSState {
       onParagraphChange?: (index: number) => void
     }
   ) => void
-  /** Provide RV keys for the store to use */
-  setRVKeys: (keys: string[]) => void
 }
 
 // ── SpeechSynthesis helpers ───────────────────────────────────────────────────
@@ -85,6 +81,16 @@ function splitToParagraphs(text: string): string[] {
 // ── Store ─────────────────────────────────────────────────────────────────────
 
 export const useTTSStore = create<TTSState>()((set, get) => {
+  let playbackToken = 0
+
+  function clearAudio() {
+    const audio = get().audio
+    if (!audio) return
+    audio.pause()
+    if (audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src)
+    audio.src = ''
+    set({ audio: null })
+  }
 
   // ── SpeechSynthesis playback ────────────────────────────────────────────────
   function ssReadFrom(
@@ -127,8 +133,8 @@ export const useTTSStore = create<TTSState>()((set, get) => {
     window.speechSynthesis.speak(utterance)
   }
 
-  // ── ResponsiveVoice playback ────────────────────────────────────────────────
-  function rvReadFrom(
+  // ── ResponsiveVoice playback through the backend ─────────────────────────────
+  async function rvReadFrom(
     paragraphs: string[],
     startIndex: number,
     chapterId: number,
@@ -140,27 +146,39 @@ export const useTTSStore = create<TTSState>()((set, get) => {
       return
     }
 
-    const { lang, voiceName, speed, pitch = 1, volume } = settings
+    const token = playbackToken
+    const { speed, volume } = settings
 
     set({ currentParagraphIndex: startIndex, status: 'playing' })
     settings.onParagraphChange?.(startIndex)
 
-    rvSpeak(paragraphs[startIndex], lang, voiceName, {
-      rate: speed,
-      pitch,
-      volume,
-      onstart: () => {
-        // already set status above
-      },
-      onend: () => {
+    try {
+      const response = await api.post<Blob>('/tts/audio', {
+        text: paragraphs[startIndex],
+      }, { responseType: 'blob' })
+      if (token !== playbackToken) return
+
+      const url = URL.createObjectURL(response.data)
+      const audio = new Audio(url)
+      audio.volume = volume
+      audio.playbackRate = speed
+      audio.onended = () => {
+        URL.revokeObjectURL(url)
         const current = get()
-        if (current.status !== 'playing') return
-        rvReadFrom(paragraphs, startIndex + 1, chapterId, settings)
-      },
-      onerror: () => {
-        set({ status: 'idle', utterance: null })
-      },
-    })
+        if (token !== playbackToken || current.status !== 'playing') return
+        void rvReadFrom(paragraphs, startIndex + 1, chapterId, settings)
+      }
+      audio.onerror = () => {
+        URL.revokeObjectURL(url)
+        if (token === playbackToken) set({ status: 'idle', audio: null })
+      }
+
+      set({ audio, utterance: null })
+      if (get().status === 'paused') return
+      await audio.play()
+    } catch {
+      if (token === playbackToken) set({ status: 'idle', audio: null })
+    }
   }
 
   function readFrom(
@@ -179,6 +197,7 @@ export const useTTSStore = create<TTSState>()((set, get) => {
   return {
     status: 'idle',
     utterance: null,
+    audio: null,
     currentParagraphIndex: 0,
     text: '',
     paragraphs: [],
@@ -188,12 +207,11 @@ export const useTTSStore = create<TTSState>()((set, get) => {
     sleepTimerRemaining: 0,
     sleepTimerInterval: null,
 
-    setRVKeys: (keys) => setRVKeys(keys),
-
     play: (text, chapterId, settings) => {
       // Cancel any previous playback
       window.speechSynthesis.cancel()
-      rvCancel()
+      playbackToken++
+      clearAudio()
 
       const { sleepTimer, sleepTimerInterval } = get()
       if (sleepTimer) clearTimeout(sleepTimer)
@@ -210,7 +228,8 @@ export const useTTSStore = create<TTSState>()((set, get) => {
       if (settings.sleepTimerMinutes > 0) {
         newSleepTimer = setTimeout(() => {
           window.speechSynthesis.cancel()
-          rvCancel()
+          playbackToken++
+          clearAudio()
           const { sleepTimerInterval: iv } = get()
           if (iv) clearInterval(iv)
           set({ status: 'idle', utterance: null, sleepTimer: null, sleepTimerRemaining: 0, sleepTimerInterval: null })
@@ -221,15 +240,6 @@ export const useTTSStore = create<TTSState>()((set, get) => {
           set({ sleepTimerRemaining: remaining })
           if (remaining <= 0) clearInterval(newInterval!)
         }, 1000)
-      }
-
-      // If using RV, prefetch all paragraphs (fire-and-forget; RV SDK caches automatically)
-      if (settings.mode === 'responsivevoice') {
-        prefetchAllParagraphs(paragraphs, settings.lang, settings.voiceName, {
-          rate: settings.speed,
-          pitch: settings.pitch ?? 1,
-          volume: settings.volume,
-        }).catch(() => {/* prefetch optional */})
       }
 
       set({
@@ -250,7 +260,7 @@ export const useTTSStore = create<TTSState>()((set, get) => {
     pause: () => {
       const { mode } = get()
       if (mode === 'responsivevoice') {
-        rvPause()
+        get().audio?.pause()
       } else {
         window.speechSynthesis.pause()
       }
@@ -260,7 +270,7 @@ export const useTTSStore = create<TTSState>()((set, get) => {
     resume: () => {
       const { mode } = get()
       if (mode === 'responsivevoice') {
-        rvResume()
+        void get().audio?.play()
       } else {
         window.speechSynthesis.resume()
       }
@@ -269,7 +279,8 @@ export const useTTSStore = create<TTSState>()((set, get) => {
 
     stop: () => {
       window.speechSynthesis.cancel()
-      rvCancel()
+      playbackToken++
+      clearAudio()
       const { sleepTimer, sleepTimerInterval } = get()
       if (sleepTimer) clearTimeout(sleepTimer)
       if (sleepTimerInterval) clearInterval(sleepTimerInterval)
@@ -289,7 +300,8 @@ export const useTTSStore = create<TTSState>()((set, get) => {
       const { paragraphs, chapterId } = get()
       if (!chapterId || paragraphs.length === 0) return
       window.speechSynthesis.cancel()
-      rvCancel()
+      playbackToken++
+      clearAudio()
       set({ currentParagraphIndex: index, status: 'playing' })
       readFrom(paragraphs, index, chapterId, {
         ...settings,

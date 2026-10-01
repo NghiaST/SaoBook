@@ -83,6 +83,7 @@ export interface TTSSettings {
   autoNextChapter: boolean
   sleepTimerMinutes: number
   ttsVoiceName: string
+  selectedRvApiKeyId: string | null
 }
 
 interface SettingsState extends UISettings, TTSSettings {
@@ -117,6 +118,7 @@ const defaults: UISettings & TTSSettings = {
   autoNextChapter: false,
   sleepTimerMinutes: 0,
   ttsVoiceName: '',
+  selectedRvApiKeyId: null,
 }
 
 const defaultSavedColors: Record<UITheme, { bgColor: string; textColor: string }> = {

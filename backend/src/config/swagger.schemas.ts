@@ -94,6 +94,19 @@ export const UserSchema = {
     avatarUrl: { type: 'string', nullable: true },
     role:      { type: 'string', enum: ['user', 'author', 'admin'] },
     createdAt: { type: 'string', format: 'date-time' },
+    settings: {
+      type: 'object',
+      nullable: true,
+      properties: {
+        id:                 { type: 'string' },
+        userId:             { type: 'string' },
+        ttsLanguage:        { type: 'string', enum: ['vi', 'en', 'zh'] },
+        ttsVoice:           { type: 'string', enum: ['male', 'female'] },
+        ttsSpeed:           { type: 'number' },
+        autoNextChapter:    { type: 'boolean' },
+        selectedRvApiKeyId: { type: 'string', nullable: true },
+      },
+    },
   },
 }
 

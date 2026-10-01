@@ -15,6 +15,7 @@ export interface TTSSettings {
   autoNextChapter: boolean
   sleepTimerMinutes: number
   ttsMode: TTSMode
+  selectedRvApiKeyId: string | null
 }
 
 export interface UISettings {
@@ -33,6 +34,7 @@ export interface UserSettings {
   ttsVoice: TTSVoice
   ttsSpeed: number
   autoNextChapter: boolean
+  selectedRvApiKeyId: string | null
 }
 
 export interface User {
@@ -144,4 +146,15 @@ export interface RvApiKey {
   status: 'personal' | 'public' | 'hidden'
   createdAt: string
   updatedAt: string
+}
+
+export interface ResponsiveVoice {
+  name: string
+  flag: string
+  gender: 'f' | 'm'
+  lang: string
+  voiceIDs: number[]
+  deprecated?: boolean
+  isByok?: boolean
+  provider?: string
 }

@@ -41,6 +41,15 @@ function restoreSession(): Promise<User | null> {
       })
       .then(({ data }) => {
         setUser(data)
+        if (data.settings) {
+          useSettingsStore.getState().updateTTS({
+            ttsLanguage: data.settings.ttsLanguage,
+            ttsVoice: data.settings.ttsVoice,
+            ttsSpeed: data.settings.ttsSpeed,
+            autoNextChapter: data.settings.autoNextChapter,
+            selectedRvApiKeyId: data.settings.selectedRvApiKeyId,
+          })
+        }
         return data
       })
       .catch(() => {

@@ -26,23 +26,26 @@ export function RVKeysPanel() {
   // Form state
   const [newLabel, setNewLabel] = useState('')
   const [newKey,   setNewKey]   = useState('')
+  const [newSecret, setNewSecret] = useState('')
   const [editLabel, setEditLabel] = useState('')
   const [editKey,   setEditKey]   = useState('')
+  const [editSecret, setEditSecret] = useState('')
 
   const handleCreate = async () => {
     if (!newLabel.trim() || !newKey.trim()) return
-    await createKey.mutateAsync({ label: newLabel.trim(), key: newKey.trim() })
-    setNewLabel(''); setNewKey(''); setCreating(false)
+    await createKey.mutateAsync({ label: newLabel.trim(), key: newKey.trim(), secret: newSecret.trim() || undefined })
+    setNewLabel(''); setNewKey(''); setNewSecret(''); setCreating(false)
   }
 
   const startEdit = (k: RvApiKey) => {
     setEditingId(k.id)
     setEditLabel(k.label)
     setEditKey(k.key)
+    setEditSecret('')
   }
 
   const handleUpdate = async (id: string) => {
-    await updateKey.mutateAsync({ id, label: editLabel.trim(), key: editKey.trim() })
+    await updateKey.mutateAsync({ id, label: editLabel.trim(), key: editKey.trim(), secret: editSecret.trim() || undefined })
     setEditingId(null)
   }
 
@@ -62,7 +65,7 @@ export function RVKeysPanel() {
         <div>
           <h3 className="font-semibold text-[var(--text)]">ResponsiveVoice API Keys</h3>
           <p className="text-xs text-[var(--text-subtle)] mt-0.5">
-            Keys are distributed sequentially (round-robin) for each paragraph when reading stories.
+            Users can select an available key in their TTS settings. Hidden keys cannot be selected.
           </p>
         </div>
         <div className="flex gap-2">
@@ -106,6 +109,16 @@ export function RVKeysPanel() {
                 placeholder="Paste key here"
               />
             </div>
+            <div className="col-span-2">
+              <label className="label text-xs">API Secret (optional)</label>
+              <input
+                type="password"
+                className="input text-sm font-mono"
+                value={newSecret}
+                onChange={(e) => setNewSecret(e.target.value)}
+                placeholder="Server-side v2 secret"
+              />
+            </div>
           </div>
           <div className="flex gap-2">
             <button
@@ -116,7 +129,7 @@ export function RVKeysPanel() {
               <Check size={13} /> Save
             </button>
             <button
-              onClick={() => { setCreating(false); setNewLabel(''); setNewKey('') }}
+              onClick={() => { setCreating(false); setNewLabel(''); setNewKey(''); setNewSecret('') }}
               className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1"
             >
               <X size={13} /> Cancel
@@ -159,6 +172,13 @@ export function RVKeysPanel() {
                     value={editKey}
                     onChange={(e) => setEditKey(e.target.value)}
                     placeholder="API Key"
+                  />
+                  <input
+                    type="password"
+                    className="input text-sm font-mono col-span-2"
+                    value={editSecret}
+                    onChange={(e) => setEditSecret(e.target.value)}
+                    placeholder="New API Secret (leave blank to keep current)"
                   />
                 </div>
               ) : (

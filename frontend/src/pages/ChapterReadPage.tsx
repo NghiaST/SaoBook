@@ -1,12 +1,11 @@
 // src/pages/ChapterReadPage.tsx
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useChapter, useChapterList, useMarkChapterRead, useRVActiveKeys } from '@/lib/queries'
+import { useChapter, useChapterList, useMarkChapterRead } from '@/lib/queries'
 import { useTTSStore } from '@/store/tts.store'
 import { useSettingsStore } from '@/store/settings.store'
 import { useAuthStore } from '@/store/auth.store'
 import { useScrollHide } from '@/hooks/useScrollHide'
-import { loadRVScript } from '@/features/tts/rv.service'
 import { Spinner } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight, List, Play, Pause, Square } from 'lucide-react'
@@ -26,14 +25,10 @@ export function ChapterReadPage() {
   } = useSettingsStore()
 
   const markRead = useMarkChapterRead()
-  const { stop, status, currentParagraphIndex, chapterId: ttsChapterId, play, pause, resume, setRVKeys } = useTTSStore()
+  const { stop, status, currentParagraphIndex, chapterId: ttsChapterId, play, pause, resume } = useTTSStore()
 
   const { data: chapter, isLoading } = useChapter(chapterId)
   const { data: chapters }           = useChapterList(nameId!)
-
-  // Fetch RV active keys (only when logged in and using RV mode)
-
-  const { data: rvKeys } = useRVActiveKeys(isAuthenticated && ttsMode === 'responsivevoice')
 
   const [content,        setContent]        = useState<string | null>(null)
   const [paragraphs,     setParagraphs]     = useState<string[]>([])
@@ -50,15 +45,6 @@ export function ChapterReadPage() {
   const ttsActive        = isTTSThisChapter && (isPlaying || isPaused)
 
   const scrollHidden = useScrollHide(20)
-
-  // ── Load RV keys into store & script ────────────────────────────────────────
-
-  useEffect(() => {
-    if (!rvKeys || rvKeys.length === 0) return
-    setRVKeys(rvKeys)
-    // Load RV script with the first key
-    loadRVScript(rvKeys[0]).catch(() => null)
-  }, [rvKeys, setRVKeys])
 
   // ── Navigation ──────────────────────────────────────────────────────────────
 

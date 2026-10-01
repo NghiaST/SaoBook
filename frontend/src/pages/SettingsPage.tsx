@@ -1,7 +1,7 @@
 // src/pages/SettingsPage.tsx
 import { useEffect, useState } from 'react'
 import { useSettingsStore, THEME_BG_OPTIONS, FONT_FAMILY_OPTIONS } from '@/store/settings.store'
-import { useUpdateSettings } from '@/lib/queries'
+import { useRVKeys, useTTSVoices, useUpdateSettings } from '@/lib/queries'
 import { useAuthStore } from '@/store/auth.store'
 import { CheckCircle2, Moon, Sun, RotateCcw, Mic, Speaker } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -113,6 +113,11 @@ export function SettingsPage() {
   const { isAuthenticated } = useAuthStore()
   const settings = useSettingsStore()
   const updateSettings = useUpdateSettings()
+  const { data: rvKeys = [] } = useRVKeys()
+  const { data: rvVoices = [], isError: rvVoicesError } = useTTSVoices(
+    settings.ttsLanguage,
+    settings.ttsMode === 'responsivevoice',
+  )
   const voices = useAvailableVoices(settings.ttsLanguage)
 
   const save = () => {
@@ -120,6 +125,7 @@ export function SettingsPage() {
     updateSettings.mutate({
       ttsLanguage:       settings.ttsLanguage,
       ttsVoice:          settings.ttsVoice,
+      selectedRvApiKeyId: settings.selectedRvApiKeyId,
       ttsSpeed:          settings.ttsSpeed,
       autoNextChapter:   settings.autoNextChapter,
     })
@@ -335,8 +341,24 @@ export function SettingsPage() {
 
         {/* ResponsiveVoice - note */}
         {settings.ttsMode === 'responsivevoice' && (
-          <div className="text-xs bg-[var(--bg-alt)] rounded-lg p-3 text-[var(--text-muted)] leading-relaxed">
-                <strong>ResponsiveVoice</strong> cần API key active được cấu hình cho tài khoản hoặc bởi admin.
+          <div className="space-y-3">
+            <div>
+              <label className="label">API key sử dụng</label>
+              <select
+                value={settings.selectedRvApiKeyId ?? ''}
+                onChange={(e) => settings.updateTTS({ selectedRvApiKeyId: e.target.value || null })}
+                className="input"
+              >
+                <option value="">Tự động chọn key khả dụng</option>
+                {rvKeys.filter((key) => key.status !== 'hidden').map((key) => (
+                  <option key={key.id} value={key.id}>{key.label} ({key.status})</option>
+                ))}
+              </select>
+            </div>
+            <div className="text-xs bg-[var(--bg-alt)] rounded-lg p-3 text-[var(--text-muted)] leading-relaxed">
+              <strong>ResponsiveVoice</strong> dùng key đã chọn để tạo audio qua backend.
+              {rvVoicesError ? ' Không thể tải danh sách giọng lúc này.' : ` ${rvVoices.length} giọng khả dụng.`}
+            </div>
           </div>
         )}
 
