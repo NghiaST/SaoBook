@@ -28,13 +28,18 @@ export interface UISettings {
 }
 
 export interface UserSettings {
-  id: string
   userId: string
-  ttsLanguage: TTSLanguage
-  ttsVoice: TTSVoice
   ttsSpeed: number
   autoNextChapter: boolean
   selectedRvApiKeyId: string | null
+  rvSettings: RvSettings
+}
+
+export interface RvSettings {
+  voiceName: string
+  language: string
+  gender: string
+  pitch: number
 }
 
 export interface User {
@@ -149,12 +154,7 @@ export interface RvApiKey {
 }
 
 export interface ResponsiveVoice {
-  name: string
-  flag: string
-  gender: 'f' | 'm'
-  lang: string
-  voiceIDs: number[]
-  deprecated?: boolean
-  isByok?: boolean
-  provider?: string
+  voiceName: string
+  language: string
+  gender: string
 }

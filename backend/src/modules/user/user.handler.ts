@@ -1,11 +1,19 @@
 // src/modules/user/user.handler.ts
 import { FastifyRequest, FastifyReply } from 'fastify'
 import bcrypt from 'bcryptjs'
+import { Prisma } from '@prisma/client'
 import prisma from '../../prisma/client'
 import { ConflictError, UnauthorizedError, ValidationError } from '../../common/exceptions'
 import { uploadAvatar } from '../../storage/r2'
 
 type AuthUser = { id: string; role: string }
+
+const defaultRvSettings = {
+  voiceName: 'Vietnamese Female',
+  language: 'vi',
+  gender: 'female',
+  pitch: 1,
+}
 
 const ALLOWED_AVATAR_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5 MB
@@ -19,13 +27,13 @@ export async function getMe(request: FastifyRequest, reply: FastifyReply) {
       bio: true, avatarUrl: true, role: true, createdAt: true,
       settings: {
         select: {
-          id: true,
           userId: true,
-          ttsLanguage: true,
-          ttsVoice: true,
           ttsSpeed: true,
           autoNextChapter: true,
           selectedRvApiKeyId: true,
+          rvSettings: {
+            select: { voiceName: true, language: true, gender: true, pitch: true },
+          },
         },
       },
     },
@@ -145,21 +153,28 @@ export async function changePassword(request: FastifyRequest, reply: FastifyRepl
 export async function updateSettings(request: FastifyRequest, reply: FastifyReply) {
   const { id } = request.user as AuthUser
   const body = request.body as Record<string, unknown>
-  const { selectedRvApiKeyId, ...settingsBody } = body
+  const {
+    selectedRvApiKeyId,
+    rvSettings,
+    ttsLanguage: _legacyLanguage,
+    ttsVoice: _legacyVoice,
+    ...settingsBody
+  } = body
+  const rvSettingsData = rvSettings as Prisma.RvSettingsCreateWithoutUserSettingsInput | undefined
 
   if (selectedRvApiKeyId !== undefined && selectedRvApiKeyId !== null) {
     const userSettingsId = await prisma.userSettings.upsert({
       where: { userId: id },
       create: { userId: id },
       update: {},
-      select: { id: true },
+      select: { userId: true },
     })
     const selectedKey = await prisma.rvApiKey.findFirst({
       where: {
         id: selectedRvApiKeyId as string,
         OR: [
           { status: 'public' },
-          { status: 'personal', userSettingsId: userSettingsId.id },
+          { status: 'personal', userSettingsId: userSettingsId.userId },
         ],
       },
       select: { id: true },
@@ -167,13 +182,24 @@ export async function updateSettings(request: FastifyRequest, reply: FastifyRepl
     if (!selectedKey) throw new ValidationError('The selected ResponsiveVoice API key is unavailable')
   }
 
+  const updateData: Prisma.UserSettingsUpdateInput = {
+    ...(settingsBody as Prisma.UserSettingsUpdateInput),
+    ...(selectedRvApiKeyId !== undefined ? { selectedRvApiKeyId: selectedRvApiKeyId as string | null } : {}),
+    ...(rvSettingsData ? {
+      rvSettings: { upsert: { create: rvSettingsData, update: rvSettingsData } },
+    } : {}),
+  }
+
   const settings = await prisma.userSettings.upsert({
     where: { userId: id },
-    create: { userId: id, ...settingsBody, selectedRvApiKeyId: selectedRvApiKeyId as string | null | undefined },
-    update: {
+    create: {
+      userId: id,
       ...settingsBody,
-      ...(selectedRvApiKeyId !== undefined ? { selectedRvApiKeyId: selectedRvApiKeyId as string | null } : {}),
+      selectedRvApiKeyId: selectedRvApiKeyId as string | null | undefined,
+      rvSettings: { create: rvSettingsData ?? defaultRvSettings },
     },
+    update: updateData,
+    include: { rvSettings: true },
   })
 
   return reply.send(settings)

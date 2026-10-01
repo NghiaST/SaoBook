@@ -1,7 +1,7 @@
 // src/pages/SettingsPage.tsx
 import { useEffect, useState } from 'react'
 import { useSettingsStore, THEME_BG_OPTIONS, FONT_FAMILY_OPTIONS } from '@/store/settings.store'
-import { useRVKeys, useTTSVoices, useUpdateSettings } from '@/lib/queries'
+import { useMe, useRVKeys, useTTSVoices, useUpdateSettings } from '@/lib/queries'
 import { useAuthStore } from '@/store/auth.store'
 import { CheckCircle2, Moon, Sun, RotateCcw, Mic, Speaker } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -24,6 +24,12 @@ function useAvailableVoices(lang: string) {
   }, [lang])
 
   return voices
+}
+
+const defaultRvVoiceNames: Record<'vi' | 'en' | 'zh', Record<'male' | 'female', string>> = {
+  vi: { male: 'Vietnamese Male', female: 'Vietnamese Female' },
+  en: { male: 'US English Male', female: 'US English Female' },
+  zh: { male: 'Chinese Male', female: 'Chinese Female' },
 }
 
 // ── Color Preset Picker ───────────────────────────────────────────────────────
@@ -113,21 +119,41 @@ export function SettingsPage() {
   const { isAuthenticated } = useAuthStore()
   const settings = useSettingsStore()
   const updateSettings = useUpdateSettings()
+  const { data: me } = useMe(isAuthenticated)
   const { data: rvKeys = [] } = useRVKeys()
   const { data: rvVoices = [], isError: rvVoicesError } = useTTSVoices(
     settings.ttsLanguage,
     settings.ttsMode === 'responsivevoice',
   )
+
+  useEffect(() => {
+    const userSettings = me?.settings
+    const rvSettings = userSettings?.rvSettings
+    if (!userSettings || !rvSettings) return
+    settings.updateTTS({
+      ttsLanguage: rvSettings.language.startsWith('zh') ? 'zh' : rvSettings.language.startsWith('en') ? 'en' : 'vi',
+      ttsVoice: rvSettings.gender === 'male' || rvSettings.gender === 'm' ? 'male' : 'female',
+      ttsVoiceName: rvSettings.voiceName,
+      ttsPitch: rvSettings.pitch,
+      ttsSpeed: userSettings.ttsSpeed,
+      autoNextChapter: userSettings.autoNextChapter,
+      selectedRvApiKeyId: userSettings.selectedRvApiKeyId,
+    })
+  }, [me?.settings, settings.updateTTS])
   const voices = useAvailableVoices(settings.ttsLanguage)
 
   const save = () => {
     if (!isAuthenticated) return
     updateSettings.mutate({
-      ttsLanguage:       settings.ttsLanguage,
-      ttsVoice:          settings.ttsVoice,
       selectedRvApiKeyId: settings.selectedRvApiKeyId,
       ttsSpeed:          settings.ttsSpeed,
       autoNextChapter:   settings.autoNextChapter,
+      rvSettings: {
+        voiceName: settings.ttsVoiceName || defaultRvVoiceNames[settings.ttsLanguage][settings.ttsVoice],
+        language: settings.ttsLanguage === 'zh' ? 'zh-CN' : settings.ttsLanguage === 'en' ? 'en-US' : 'vi',
+        gender: settings.ttsVoice,
+        pitch: settings.ttsPitch,
+      },
     })
   }
 
@@ -334,6 +360,35 @@ export function SettingsPage() {
             ) : (
               <p className="text-xs text-[var(--text-subtle)] mt-1">
                 Trình duyệt chưa tải xong danh sách giọng. Thử tải lại trang.
+              </p>
+            )}
+          </div>
+        )}
+
+        {settings.ttsMode === 'responsivevoice' && (
+          <div>
+            <label className="label">
+              Giọng ResponsiveVoice{' '}
+              <span className="text-xs font-normal text-[var(--text-subtle)]">
+                ({rvVoices.length} giọng khả dụng)
+              </span>
+            </label>
+            {rvVoices.length > 0 ? (
+              <select
+                value={settings.ttsVoiceName || ''}
+                onChange={(e) => settings.updateTTS({ ttsVoiceName: e.target.value })}
+                className="input"
+              >
+                <option value="">-- Tự động chọn --</option>
+                {rvVoices.map((voice) => (
+                  <option key={`${voice.voiceName}-${voice.language}`} value={voice.voiceName}>
+                    {voice.voiceName} ({voice.language}, {voice.gender})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-xs text-[var(--text-subtle)] mt-1">
+                {rvVoicesError ? 'Không thể tải danh sách giọng.' : 'Chưa có giọng ResponsiveVoice khả dụng.'}
               </p>
             )}
           </div>

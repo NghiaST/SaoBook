@@ -42,9 +42,15 @@ function restoreSession(): Promise<User | null> {
       .then(({ data }) => {
         setUser(data)
         if (data.settings) {
+          const rvSettings = data.settings.rvSettings
+          const language = rvSettings.language.startsWith('zh')
+            ? 'zh'
+            : rvSettings.language.startsWith('en') ? 'en' : 'vi'
           useSettingsStore.getState().updateTTS({
-            ttsLanguage: data.settings.ttsLanguage,
-            ttsVoice: data.settings.ttsVoice,
+            ttsLanguage: language,
+            ttsVoice: rvSettings.gender === 'male' || rvSettings.gender === 'm' ? 'male' : 'female',
+            ttsVoiceName: rvSettings.voiceName,
+            ttsPitch: rvSettings.pitch,
             ttsSpeed: data.settings.ttsSpeed,
             autoNextChapter: data.settings.autoNextChapter,
             selectedRvApiKeyId: data.settings.selectedRvApiKeyId,

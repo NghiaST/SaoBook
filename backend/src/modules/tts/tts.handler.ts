@@ -16,28 +16,22 @@ type AudioRequest = FastifyRequest<{
 
 type VoiceRequest = FastifyRequest<{ Querystring: { language?: string } }>
 
-const languageCodes = {
-  vi: 'vi',
-  en: 'en-US',
-  zh: 'zh-CN',
-} as const
-
-const voiceNames = {
-  vi: { male: 'Vietnamese Male', female: 'Vietnamese Female' },
-  en: { male: 'US English Male', female: 'US English Female' },
-  zh: { male: 'Chinese Male', female: 'Chinese Female' },
-} as const
-
 const responsiveVoiceUrl = 'https://texttospeech.responsivevoice.org/v2'
+const defaultRvSettings = {
+  voiceName: 'Vietnamese Female',
+  language: 'vi',
+  gender: 'female',
+  pitch: 1,
+}
 
 async function getUserSettingsId(userId: string) {
   const settings = await prisma.userSettings.upsert({
     where: { userId },
-    create: { userId },
+    create: { userId, rvSettings: { create: defaultRvSettings } },
     update: {},
-    select: { id: true },
+    select: { userId: true },
   })
-  return settings.id
+  return settings.userId
 }
 
 export async function streamAudio(request: AudioRequest, reply: FastifyReply) {
@@ -45,9 +39,13 @@ export async function streamAudio(request: AudioRequest, reply: FastifyReply) {
   const { text } = request.body
   const settings = await prisma.userSettings.upsert({
     where: { userId },
-    create: { userId },
+    create: { userId, rvSettings: { create: defaultRvSettings } },
     update: {},
-    select: { id: true, ttsLanguage: true, ttsVoice: true, selectedRvApiKeyId: true },
+    select: {
+      userId: true,
+      selectedRvApiKeyId: true,
+      rvSettings: { select: { voiceName: true, language: true, gender: true, pitch: true } },
+    },
   })
   const apiKey = settings.selectedRvApiKeyId
     ? await prisma.rvApiKey.findFirst({
@@ -55,7 +53,7 @@ export async function streamAudio(request: AudioRequest, reply: FastifyReply) {
         id: settings.selectedRvApiKeyId,
         OR: [
           { status: 'public' },
-          { status: 'personal', userSettingsId: settings.id },
+          { status: 'personal', userSettingsId: settings.userId },
         ],
       },
       select: { key: true, secret: true },
@@ -64,7 +62,7 @@ export async function streamAudio(request: AudioRequest, reply: FastifyReply) {
       where: {
         OR: [
           { status: 'public' },
-          { status: 'personal', userSettingsId: settings.id },
+          { status: 'personal', userSettingsId: settings.userId },
         ],
       },
       orderBy: { createdAt: 'asc' },
@@ -80,6 +78,10 @@ export async function streamAudio(request: AudioRequest, reply: FastifyReply) {
     throw new AppError(503, 'TTS_PROVIDER_UNAVAILABLE', 'No ResponsiveVoice API secret is configured')
   }
 
+  if (!settings.rvSettings) {
+    throw new AppError(503, 'TTS_PROVIDER_UNAVAILABLE', 'ResponsiveVoice settings are not configured')
+  }
+
   const providerResponse = await fetch(`${responsiveVoiceUrl}/text/synthesize`, {
     method: 'POST',
     headers: {
@@ -90,8 +92,9 @@ export async function streamAudio(request: AudioRequest, reply: FastifyReply) {
     },
     body: JSON.stringify({
       text,
-      lang: languageCodes[settings.ttsLanguage],
-      voice: voiceNames[settings.ttsLanguage][settings.ttsVoice],
+      lang: settings.rvSettings.language,
+      voice: settings.rvSettings.voiceName,
+      pitch: settings.rvSettings.pitch,
     }),
   })
   const contentType = providerResponse.headers.get('content-type') ?? ''
@@ -124,8 +127,15 @@ export async function listVoices(request: VoiceRequest, reply: FastifyReply) {
     throw new AppError(502, 'TTS_PROVIDER_ERROR', 'ResponsiveVoice could not list voices')
   }
 
-  const body = await providerResponse.json() as { voices?: unknown }
-  return reply.send(Array.isArray(body.voices) ? body.voices : [])
+  const body = await providerResponse.json() as { voices?: Array<Record<string, unknown>> }
+  const voices = Array.isArray(body.voices)
+    ? body.voices.map((voice) => ({
+      voiceName: String(voice.name ?? voice.voiceName ?? ''),
+      language: String(voice.lang ?? voice.language ?? ''),
+      gender: String(voice.gender ?? ''),
+    })).filter((voice) => voice.voiceName && voice.language && voice.gender)
+    : []
+  return reply.send(voices)
 }
 
 // ── Admin: CRUD keys ──────────────────────────────────────────────────────────
@@ -212,8 +222,7 @@ export async function deleteKey(
   return reply.code(204).send()
 }
 
-// ── Public: list visible keys for the frontend to use round-robin ────────────
-// Return only key strings, not IDs or labels, to avoid exposing metadata
+// ── Authenticated: list visible keys for user selection ───────────────────────
 
 export async function getActiveKeys(request: FastifyRequest, reply: FastifyReply) {
   const { id: userId } = request.user as AuthUser

@@ -65,7 +65,18 @@ export async function register(
       email,
       name,
       passwordHash,
-      settings: { create: {} }, // default settings
+      settings: {
+        create: {
+          rvSettings: {
+            create: {
+              voiceName: 'Vietnamese Female',
+              language: 'vi',
+              gender: 'female',
+              pitch: 1,
+            },
+          },
+        },
+      },
     },
     select: { id: true, username: true, email: true, name: true, role: true },
   })

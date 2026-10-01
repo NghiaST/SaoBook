@@ -23,11 +23,6 @@ enum TTSLanguage {
   zh
 }
 
-enum TTSVoice {
-  male
-  female
-}
-
 enum RvApiKeyStatus {
   personal
   public
@@ -62,20 +57,28 @@ model User {
 }
 
 model UserSettings {
-  id     String @id @default(uuid())
-  userId String @unique
+  userId String @id
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // TTS
-  ttsLanguage       TTSLanguage @default(vi)
-  ttsVoice          TTSVoice    @default(female)
   ttsSpeed          Float       @default(1.0)
   autoNextChapter   Boolean     @default(false)
   selectedRvApiKeyId String?
   selectedRvApiKey   RvApiKey?  @relation("SelectedRvApiKey", fields: [selectedRvApiKeyId], references: [id], onDelete: SetNull)
+  rvSettings        RvSettings?
   rvApiKeys         RvApiKey[]
 
   @@map("user_settings")
+}
+
+model RvSettings {
+  userSettingsId String        @id
+  userSettings   UserSettings  @relation(fields: [userSettingsId], references: [userId], onDelete: Cascade)
+  voiceName      String
+  language       String
+  gender         String
+  pitch          Float         @default(1.0)
+
+  @@map("rv_settings")
 }
 
 model PasswordReset {
@@ -219,7 +222,7 @@ model ChapterReadLog {
 model RvApiKey {
   id             String        @id @default(uuid())
   userSettingsId String?
-  userSettings   UserSettings? @relation(fields: [userSettingsId], references: [id], onDelete: Cascade)
+  userSettings   UserSettings? @relation(fields: [userSettingsId], references: [userId], onDelete: Cascade)
   label          String        // tên gợi nhớ, vd: "Key #1"
   key            String        @unique
   secret         String?

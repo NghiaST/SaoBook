@@ -91,9 +91,16 @@ export async function userRoutes(app: FastifyInstance) {
       body: {
         type: 'object',
         properties: {
-          ttsLanguage:       { type: 'string', enum: ['vi', 'en', 'zh'] },
-          ttsVoice:          { type: 'string', enum: ['male', 'female'] },
           selectedRvApiKeyId: { type: 'string', nullable: true },
+          rvSettings: {
+            type: 'object',
+            properties: {
+              voiceName: { type: 'string', minLength: 1 },
+              language: { type: 'string', minLength: 1 },
+              gender: { type: 'string', enum: ['male', 'female', 'm', 'f'] },
+              pitch: { type: 'number', minimum: 0, maximum: 2 },
+            },
+          },
           ttsSpeed:          { type: 'number', minimum: 0.5, maximum: 5 },
           autoNextChapter:   { type: 'boolean' },
         },

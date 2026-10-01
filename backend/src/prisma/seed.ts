@@ -35,7 +35,18 @@ async function main() {
           name,
           passwordHash,
           role: 'admin',
-          settings: { create: {} },
+          settings: {
+            create: {
+              rvSettings: {
+                create: {
+                  voiceName: 'Vietnamese Female',
+                  language: 'vi',
+                  gender: 'female',
+                  pitch: 1,
+                },
+              },
+            },
+          },
         },
         select: { id: true, username: true, email: true, role: true },
       })

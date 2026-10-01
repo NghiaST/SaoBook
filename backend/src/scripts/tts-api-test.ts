@@ -113,6 +113,9 @@ async function main() {
     if (selected.body.selectedRvApiKeyId !== userKeyId) {
       throw new Error('select personal TTS key: selected key was not persisted')
     }
+    if (!selected.body.rvSettings?.voiceName || !selected.body.rvSettings?.language || !selected.body.rvSettings?.gender) {
+      throw new Error('select personal TTS key: rvSettings were not returned')
+    }
 
     const hiddenSelected = await request(`/tts/keys/${userKeyId}`, {
       method: 'PATCH', token: userToken, body: { status: 'hidden' },

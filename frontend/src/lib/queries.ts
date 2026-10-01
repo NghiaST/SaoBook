@@ -112,9 +112,8 @@ export const useChangePassword = () =>
 export const useUpdateSettings = () => {
   const qc = useQueryClient()
   return useMutation({
-    // ttsLanguage: 'vi' | 'en' | 'zh', ttsVoice: 'male' | 'female',
-    // ttsSpeed: 0.5–5, autoNextChapter: boolean, selectedRvApiKeyId: string | null
-    mutationFn: (data: Partial<UserSettings>) =>
+    // rvSettings: voiceName, language, gender, pitch; selectedRvApiKeyId selects the provider key.
+    mutationFn: (data: Partial<UserSettings> & { rvSettings?: UserSettings['rvSettings'] }) =>
       api.put<UserSettings>('/users/me/settings', data).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['me'] }),
   })

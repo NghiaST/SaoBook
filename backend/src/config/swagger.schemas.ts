@@ -98,13 +98,19 @@ export const UserSchema = {
       type: 'object',
       nullable: true,
       properties: {
-        id:                 { type: 'string' },
         userId:             { type: 'string' },
-        ttsLanguage:        { type: 'string', enum: ['vi', 'en', 'zh'] },
-        ttsVoice:           { type: 'string', enum: ['male', 'female'] },
         ttsSpeed:           { type: 'number' },
         autoNextChapter:    { type: 'boolean' },
         selectedRvApiKeyId: { type: 'string', nullable: true },
+        rvSettings: {
+          type: 'object',
+          properties: {
+            voiceName: { type: 'string' },
+            language: { type: 'string' },
+            gender: { type: 'string' },
+            pitch: { type: 'number' },
+          },
+        },
       },
     },
   },
@@ -113,13 +119,19 @@ export const UserSchema = {
 export const UserSettingsSchema = {
   type: 'object',
   properties: {
-    id:                 { type: 'string' },
     userId:             { type: 'string' },
-    ttsLanguage:        { type: 'string', enum: ['vi', 'en', 'zh'] },
-    ttsVoice:           { type: 'string', enum: ['male', 'female'] },
     selectedRvApiKeyId: { type: 'string', nullable: true },
     ttsSpeed:           { type: 'number' },
     autoNextChapter:    { type: 'boolean' },
+    rvSettings: {
+      type: 'object',
+      properties: {
+        voiceName: { type: 'string' },
+        language: { type: 'string' },
+        gender: { type: 'string' },
+        pitch: { type: 'number' },
+      },
+    },
   },
 }
 

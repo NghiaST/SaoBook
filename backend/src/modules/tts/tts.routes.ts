@@ -46,7 +46,18 @@ export async function ttsRoutes(app: FastifyInstance) {
         properties: { language: { type: 'string', minLength: 1, maxLength: 35 } },
       },
       response: {
-        200: { type: 'array', items: { type: 'object', additionalProperties: true } },
+        200: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: ['voiceName', 'language', 'gender'],
+            properties: {
+              voiceName: { type: 'string' },
+              language: { type: 'string' },
+              gender: { type: 'string' },
+            },
+          },
+        },
         401: { description: 'Authentication required', ...ErrorSchema },
         502: { description: 'ResponsiveVoice voice request failed', ...ErrorSchema },
         503: { description: 'ResponsiveVoice credentials are not configured', ...ErrorSchema },
