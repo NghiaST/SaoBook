@@ -209,6 +209,7 @@ export const useCreateStory = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['my-stories'] })
       qc.invalidateQueries({ queryKey: ['stories'] })
+      qc.invalidateQueries({ queryKey: ['admin-books'] })
     },
   })
 }

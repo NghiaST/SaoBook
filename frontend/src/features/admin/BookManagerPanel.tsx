@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BookOpen, ExternalLink, Pencil, List, Search } from 'lucide-react'
-import { useAdminBooks } from '@/lib/queries'
-import { Badge, EmptyState, Spinner } from '@/components/ui'
+import { BookOpen, ExternalLink, Search, Trash2 } from 'lucide-react'
+import { useAdminBooks, useDeleteStory } from '@/lib/queries'
+import { Badge, Button, EmptyState, Spinner } from '@/components/ui'
 import { formatDate } from '@/lib/utils'
 
 const PAGE_SIZE = 20
@@ -11,6 +11,8 @@ export function BookManagerPanel() {
   const [q, setQ] = useState('')
   const [authorId, setAuthorId] = useState('')
   const [page, setPage] = useState(1)
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null)
+  const deleteStory = useDeleteStory()
   const { data, isLoading, isFetching } = useAdminBooks({
     q: q.trim() || undefined,
     authorId: authorId.trim() || undefined,
@@ -24,7 +26,7 @@ export function BookManagerPanel() {
     <div className="space-y-5">
       <div>
         <h2 className="font-display text-xl font-semibold text-[var(--text)]">Book Manager</h2>
-        <p className="text-sm text-[var(--text-subtle)] mt-1">Review stories and jump directly to their management tools.</p>
+        <p className="text-sm text-[var(--text-subtle)] mt-1">Review stories, open their public pages, or remove them.</p>
       </div>
 
       <div className="flex gap-3 flex-wrap">
@@ -101,12 +103,29 @@ export function BookManagerPanel() {
                         <Link to={`/stories/${book.nameId}`} className="p-1.5 rounded-lg text-[var(--text-muted)] hover:bg-[var(--bg-alt)]" title="View story">
                           <ExternalLink size={14} />
                         </Link>
-                        <Link to={`/author/stories/${book.id}/edit`} className="p-1.5 rounded-lg text-[var(--text-muted)] hover:bg-[var(--bg-alt)]" title="Edit story">
-                          <Pencil size={14} />
-                        </Link>
-                        <Link to={`/author/stories/${book.id}/chapters`} className="p-1.5 rounded-lg text-[var(--text-muted)] hover:bg-[var(--bg-alt)]" title="Manage chapters">
-                          <List size={14} />
-                        </Link>
+                        {confirmDelete === book.id ? (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              loading={deleteStory.isPending}
+                              onClick={() => deleteStory.mutate(book.id, { onSuccess: () => setConfirmDelete(null) })}
+                            >
+                              Delete
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>
+                              Cancel
+                            </Button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDelete(book.id)}
+                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            title="Delete story"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
