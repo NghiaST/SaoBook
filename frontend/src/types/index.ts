@@ -163,7 +163,6 @@ export interface RvApiKey {
   id: string
   userSettingsId: string | null
   label: string
-  key: string
   status: 'personal' | 'public' | 'hidden'
   createdAt: string
   updatedAt: string

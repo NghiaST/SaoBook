@@ -548,9 +548,10 @@ export const useUpdateRVKey = () => {
     onMutate: async ({ id, ...data }) => {
       await qc.cancelQueries({ queryKey: ['rv-keys'] })
       const previousKeys = qc.getQueryData<RvApiKey[]>(['rv-keys'])
+      const { key: _key, secret: _secret, ...safeData } = data
 
       qc.setQueryData<RvApiKey[]>(['rv-keys'], (keys) =>
-        keys?.map((key) => key.id === id ? { ...key, ...data } : key),
+        keys?.map((key) => key.id === id ? { ...key, ...safeData } : key),
       )
 
       return { previousKeys }

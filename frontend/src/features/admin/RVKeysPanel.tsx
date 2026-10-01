@@ -1,17 +1,12 @@
 // src/features/admin/RVKeysPanel.tsx
 // Embed into AdminPage.tsx - add a "TTS Keys" tab
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
-  useAdminRVKeys, useCreateRVKey, useUpdateRVKey, useDeleteRVKey,
+  useAdminRVKeys, useCreateRVKey, useUpdateRVKey, useDeleteRVKey, useRVKeyCredentials,
 } from '@/lib/queries'
 import type { RvApiKey } from '@/types'
-import { Plus, Pencil, Trash2, Check, X, Eye, EyeOff, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Plus, Pencil, Trash2, Check, X, ToggleLeft, ToggleRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-function maskKey(key: string): string {
-  if (key.length <= 8) return '•'.repeat(key.length)
-  return key.slice(0, 8) + '•'.repeat(Math.min(20, key.length - 8))
-}
 
 export function RVKeysPanel() {
   const { data: keys = [], isLoading } = useAdminRVKeys()
@@ -19,9 +14,9 @@ export function RVKeysPanel() {
   const updateKey = useUpdateRVKey()
   const deleteKey = useDeleteRVKey()
 
-  const [showKeys, setShowKeys]   = useState(false)
   const [creating, setCreating]   = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const credentials = useRVKeyCredentials(editingId)
 
   // Form state
   const [newLabel, setNewLabel] = useState('')
@@ -31,6 +26,12 @@ export function RVKeysPanel() {
   const [editKey,   setEditKey]   = useState('')
   const [editSecret, setEditSecret] = useState('')
 
+  useEffect(() => {
+    if (!credentials.data || !editingId) return
+    setEditKey(credentials.data.key)
+    setEditSecret(credentials.data.secret ?? '')
+  }, [credentials.data, editingId])
+
   const handleCreate = async () => {
     if (!newLabel.trim() || !newKey.trim()) return
     await createKey.mutateAsync({ label: newLabel.trim(), key: newKey.trim(), secret: newSecret.trim() || undefined })
@@ -38,9 +39,10 @@ export function RVKeysPanel() {
   }
 
   const startEdit = (k: RvApiKey) => {
+    if (k.status === 'public') return
     setEditingId(k.id)
     setEditLabel(k.label)
-    setEditKey(k.key)
+    setEditKey('')
     setEditSecret('')
   }
 
@@ -65,18 +67,10 @@ export function RVKeysPanel() {
         <div>
           <h3 className="font-semibold text-[var(--text)]">ResponsiveVoice API Keys</h3>
           <p className="text-xs text-[var(--text-subtle)] mt-0.5">
-            Users can select an available key in their TTS settings. Hidden keys cannot be selected.
+            Credentials are hidden by default. Personal keys can be edited; public admin keys cannot.
           </p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={() => setShowKeys((v) => !v)}
-            className="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"
-            title={showKeys ? 'Hide keys' : 'Show keys'}
-          >
-            {showKeys ? <EyeOff size={13} /> : <Eye size={13} />}
-            {showKeys ? 'Hide' : 'Show'} keys
-          </button>
           <button
             onClick={() => setCreating(true)}
             className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1"
@@ -185,8 +179,8 @@ export function RVKeysPanel() {
                 /* View mode */
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-[var(--text)] truncate">{k.label}</p>
-                  <p className="text-xs font-mono text-[var(--text-subtle)] truncate">
-                    {showKeys ? k.key : maskKey(k.key)}
+                  <p className="text-xs text-[var(--text-subtle)] truncate">
+                    {k.status === 'public' ? 'Public credentials cannot be revealed' : 'Credentials available when editing'}
                   </p>
                 </div>
               )}
@@ -227,13 +221,15 @@ export function RVKeysPanel() {
                     >
                       {k.status !== 'hidden' ? <ToggleRight size={16} className="text-green-600" /> : <ToggleLeft size={16} />}
                     </button>
-                    <button
-                      onClick={() => startEdit(k)}
-                      className="p-1.5 rounded-lg text-[var(--text-muted)] hover:bg-[var(--bg-alt)]"
-                      title="Edit"
-                    >
-                      <Pencil size={13} />
-                    </button>
+                    {k.status !== 'public' && (
+                      <button
+                        onClick={() => startEdit(k)}
+                        className="p-1.5 rounded-lg text-[var(--text-muted)] hover:bg-[var(--bg-alt)]"
+                        title="Edit"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDelete(k.id)}
                       className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
