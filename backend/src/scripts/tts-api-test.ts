@@ -99,7 +99,15 @@ async function main() {
     const publicCredentials = await request(`/tts/keys/${keyId}/credentials`, {
       method: 'GET', token: adminToken,
     })
-    expectStatus(publicCredentials, 403, 'get public TTS key credentials')
+    expectStatus(publicCredentials, 200, 'get public TTS key credentials as admin')
+    if (publicCredentials.body.key !== key || publicCredentials.body.secret !== secret) {
+      throw new Error('get public TTS key credentials as admin: credentials did not match')
+    }
+
+    const userPublicCredentials = await request(`/tts/keys/${keyId}/credentials`, {
+      method: 'GET', token: userToken,
+    })
+    expectStatus(userPublicCredentials, 403, 'get public TTS key credentials as user')
 
     const createdUserKey = await request('/tts/keys', {
       method: 'POST', token: userToken,
@@ -121,6 +129,11 @@ async function main() {
     if (userCredentials.body.key !== userKey || userCredentials.body.secret !== userSecret) {
       throw new Error('get personal TTS key credentials: credentials did not match')
     }
+
+    const adminUserCredentials = await request(`/tts/keys/${userKeyId}/credentials`, {
+      method: 'GET', token: adminToken,
+    })
+    expectStatus(adminUserCredentials, 200, 'get personal TTS key credentials as admin')
 
     const unauthorizedSelection = await request('/users/me/settings', {
       method: 'PUT', token: adminToken, body: { selectedRvApiKeyId: userKeyId },

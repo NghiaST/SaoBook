@@ -175,8 +175,8 @@ export async function ttsRoutes(app: FastifyInstance) {
     ...auth,
     schema: {
       ...tag, ...bearer,
-      summary: 'Get credentials for a personal RV API key',
-      description: 'Returns key and secret only to the owner of a personal key. Public or another user\'s keys cannot be revealed.',
+      summary: 'Get RV API key credentials for editing',
+      description: 'Admins can retrieve any key credentials. Regular users can retrieve credentials only for their own personal keys.',
       params: idParam,
       response: {
         200: {
@@ -189,7 +189,7 @@ export async function ttsRoutes(app: FastifyInstance) {
           },
         },
         401: { description: 'Authentication required', ...ErrorSchema },
-        403: { description: 'Public or another user\'s key', ...ErrorSchema },
+        403: { description: 'Key belongs to another user', ...ErrorSchema },
         404: { description: 'Key not found', ...ErrorSchema },
       },
     },

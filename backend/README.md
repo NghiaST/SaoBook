@@ -197,7 +197,7 @@ KeyCredentials
 * The public API accepts user-friendly values like `voiceName: "Vietnamese Female"`, `language: "vi"`, and `gender: "female"`, then normalizes them before persisting to Prisma.
 * A selected key must be public or personally owned by the authenticated user. If no key is selected, audio uses the oldest eligible key.
 * ResponsiveVoice v2 credentials are server-side environment variables: `RESPONSIVEVOICE_API_KEY` and `RESPONSIVEVOICE_API_SECRET`.
-* Per-key v2 secrets may also be stored with a key. Normal key APIs never return credentials; only the owner of a personal key can request them for editing. Public/admin-managed key credentials cannot be revealed.
+* Per-key v2 secrets may also be stored with a key. Normal key APIs never return credentials; admins can request credentials for editing any key, while regular users can request them only for their own personal key.
 
 ### Health
 
@@ -298,7 +298,7 @@ KeyCredentials
 | `GET /api/tts/keys` | Authenticated | `200 Key[]` without credentials (`userSettingsId` identifies the owning user) |
 | `POST /api/tts/keys` | Body: `label: T`, `key: T`, `secret?: T` | `201 Key`; `409 Conflict` for duplicate key; `422 Error` |
 | `PATCH /api/tts/keys/:id` | Path: `id: UUID`; body: `label?: T`, `key?: T`, `secret?: T`, `status?: personal|public|hidden` | `200 Key`; `403/404 Error`; `409 Conflict` for duplicate key |
-| `GET /api/tts/keys/:id/credentials` | Path: `id: UUID`; owner of a personal key only | `200 KeyCredentials`; `401/403/404 Error` |
+| `GET /api/tts/keys/:id/credentials` | Path: `id: UUID`; admin for any key or owner of a personal key | `200 KeyCredentials`; `401/403/404 Error` |
 | `DELETE /api/tts/keys/:id` | Path: `id: UUID` | `204`; `403/404 Error` |
 
 `/api/tts/voices` proxies the ResponsiveVoice v2 voice catalog and keeps provider credentials on the backend. `/api/tts/audio` calls ResponsiveVoice v2 `/text/synthesize` with only the text, resolved language, and resolved voice; it does not forward speed, pitch, volume, or other frontend settings.

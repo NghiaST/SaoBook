@@ -5,7 +5,7 @@ import {
   useAdminRVKeys, useCreateRVKey, useUpdateRVKey, useDeleteRVKey, useRVKeyCredentials,
 } from '@/lib/queries'
 import type { RvApiKey } from '@/types'
-import { Plus, Pencil, Trash2, Check, X, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Plus, Pencil, Trash2, Check, X, Eye, EyeOff, ToggleLeft, ToggleRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function RVKeysPanel() {
@@ -25,6 +25,8 @@ export function RVKeysPanel() {
   const [editLabel, setEditLabel] = useState('')
   const [editKey,   setEditKey]   = useState('')
   const [editSecret, setEditSecret] = useState('')
+  const [showEditKey, setShowEditKey] = useState(false)
+  const [showEditSecret, setShowEditSecret] = useState(false)
 
   useEffect(() => {
     if (!credentials.data || !editingId) return
@@ -44,6 +46,8 @@ export function RVKeysPanel() {
     setEditLabel(k.label)
     setEditKey('')
     setEditSecret('')
+    setShowEditKey(false)
+    setShowEditSecret(false)
   }
 
   const handleUpdate = async (id: string) => {
@@ -67,7 +71,7 @@ export function RVKeysPanel() {
         <div>
           <h3 className="font-semibold text-[var(--text)]">ResponsiveVoice API Keys</h3>
           <p className="text-xs text-[var(--text-subtle)] mt-0.5">
-            Credentials are hidden by default. Personal keys can be edited; public admin keys cannot.
+            Credentials are hidden by default. Admins can edit any key; values are loaded automatically when editing.
           </p>
         </div>
         <div className="flex gap-2">
@@ -161,26 +165,47 @@ export function RVKeysPanel() {
                     onChange={(e) => setEditLabel(e.target.value)}
                     placeholder="Label"
                   />
-                  <input
-                    className="input text-sm font-mono"
-                    value={editKey}
-                    onChange={(e) => setEditKey(e.target.value)}
-                    placeholder="API Key"
-                  />
-                  <input
-                    type="password"
-                    className="input text-sm font-mono col-span-2"
-                    value={editSecret}
-                    onChange={(e) => setEditSecret(e.target.value)}
-                    placeholder="New API Secret (leave blank to keep current)"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showEditKey ? 'text' : 'password'}
+                      className="input text-sm font-mono pr-9 w-full"
+                      value={editKey}
+                      onChange={(e) => setEditKey(e.target.value)}
+                      placeholder="API Key"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowEditKey((visible) => !visible)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
+                      title={showEditKey ? 'Hide API key' : 'Show API key'}
+                    >
+                      {showEditKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                  <div className="relative col-span-2">
+                    <input
+                      type={showEditSecret ? 'text' : 'password'}
+                      className="input text-sm font-mono pr-9 w-full"
+                      value={editSecret}
+                      onChange={(e) => setEditSecret(e.target.value)}
+                      placeholder="API Secret"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowEditSecret((visible) => !visible)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
+                      title={showEditSecret ? 'Hide API secret' : 'Show API secret'}
+                    >
+                      {showEditSecret ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 /* View mode */
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-[var(--text)] truncate">{k.label}</p>
                   <p className="text-xs text-[var(--text-subtle)] truncate">
-                    {k.status === 'public' ? 'Public credentials cannot be revealed' : 'Credentials available when editing'}
+                    {k.status === 'public' ? 'Admin-managed public key' : 'Credentials available when editing'}
                   </p>
                 </div>
               )}
@@ -221,15 +246,13 @@ export function RVKeysPanel() {
                     >
                       {k.status !== 'hidden' ? <ToggleRight size={16} className="text-green-600" /> : <ToggleLeft size={16} />}
                     </button>
-                    {k.status !== 'public' && (
-                      <button
-                        onClick={() => startEdit(k)}
-                        className="p-1.5 rounded-lg text-[var(--text-muted)] hover:bg-[var(--bg-alt)]"
-                        title="Edit"
-                      >
-                        <Pencil size={13} />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => startEdit(k)}
+                      className="p-1.5 rounded-lg text-[var(--text-muted)] hover:bg-[var(--bg-alt)]"
+                      title="Edit"
+                    >
+                      <Pencil size={13} />
+                    </button>
                     <button
                       onClick={() => handleDelete(k.id)}
                       className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"

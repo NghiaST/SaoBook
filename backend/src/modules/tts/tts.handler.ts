@@ -264,8 +264,8 @@ export async function getKeyCredentials(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply,
 ) {
-  const { id: userId } = request.user as AuthUser
-  const userSettingsId = await getUserSettingsId(userId)
+  const { id: userId, role } = request.user as AuthUser
+  const userSettingsId = role === 'admin' ? undefined : await getUserSettingsId(userId)
   const { id } = request.params
   const existing = await prisma.rvApiKey.findUnique({
     where: { id },
@@ -273,8 +273,8 @@ export async function getKeyCredentials(
   })
 
   if (!existing) throw new NotFoundError('RvApiKey')
-  if (existing.status === 'public' || existing.userSettingsId !== userSettingsId) {
-    throw new ForbiddenError('Public or another user\'s key credentials cannot be revealed')
+  if (role !== 'admin' && existing.userSettingsId !== userSettingsId) {
+    throw new ForbiddenError('Another user\'s key credentials cannot be revealed')
   }
 
   return reply.send({ id: existing.id, key: existing.key, secret: existing.secret })
