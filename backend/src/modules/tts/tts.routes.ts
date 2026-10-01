@@ -15,9 +15,9 @@ const idParam = {
 
 type AudioBody = {
   text: string
-  ttsLanguage?: 'vi' | 'en' | 'zh'
-  ttsVoice?: 'male' | 'female'
 }
+
+type VoiceQuery = { Querystring: { language?: string } }
 
 type IdParam = { Params: { id: string } }
 
@@ -35,20 +35,37 @@ const KeySchema = {
 }
 
 export async function ttsRoutes(app: FastifyInstance) {
+  app.get<VoiceQuery>('/voices', {
+    ...auth,
+    schema: {
+      ...tag, ...bearer,
+      summary: 'List ResponsiveVoice voices',
+      querystring: {
+        type: 'object',
+        additionalProperties: false,
+        properties: { language: { type: 'string', minLength: 1, maxLength: 35 } },
+      },
+      response: {
+        200: { type: 'array', items: { type: 'object', additionalProperties: true } },
+        401: { description: 'Authentication required', ...ErrorSchema },
+        502: { description: 'ResponsiveVoice voice request failed', ...ErrorSchema },
+        503: { description: 'ResponsiveVoice credentials are not configured', ...ErrorSchema },
+      },
+    },
+  }, handler.listVoices)
+
   app.post<{ Body: AudioBody }>('/audio', {
     ...auth,
     schema: {
       ...tag, ...bearer,
       summary: 'Stream ResponsiveVoice audio',
-      description: 'Streams audio for the supplied text using the user\'s TTS language and voice settings.',
+      description: 'Streams audio for the supplied text using the user\'s selected API key and TTS settings.',
       body: {
         type: 'object',
         required: ['text'],
         additionalProperties: false,
         properties: {
-          text:        { type: 'string', minLength: 1, maxLength: 300 },
-          ttsLanguage: { type: 'string', enum: ['vi', 'en', 'zh'] },
-          ttsVoice:    { type: 'string', enum: ['male', 'female'] },
+          text: { type: 'string', minLength: 1, maxLength: 4000 },
         },
       },
       response: {
@@ -106,6 +123,7 @@ export async function ttsRoutes(app: FastifyInstance) {
         properties: {
           label: { type: 'string' },
           key:   { type: 'string' },
+          secret: { type: 'string' },
         },
       },
       response: {
@@ -128,6 +146,7 @@ export async function ttsRoutes(app: FastifyInstance) {
         properties: {
           label:  { type: 'string' },
           key:    { type: 'string' },
+          secret: { type: 'string' },
           status: { type: 'string', enum: ['personal', 'public', 'hidden'] },
         },
       },

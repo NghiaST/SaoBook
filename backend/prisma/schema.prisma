@@ -71,6 +71,8 @@ model UserSettings {
   ttsVoice          TTSVoice    @default(female)
   ttsSpeed          Float       @default(1.0)
   autoNextChapter   Boolean     @default(false)
+  selectedRvApiKeyId String?
+  selectedRvApiKey   RvApiKey?  @relation("SelectedRvApiKey", fields: [selectedRvApiKeyId], references: [id], onDelete: SetNull)
   rvApiKeys         RvApiKey[]
 
   @@map("user_settings")
@@ -220,7 +222,9 @@ model RvApiKey {
   userSettings   UserSettings? @relation(fields: [userSettingsId], references: [id], onDelete: Cascade)
   label          String        // tên gợi nhớ, vd: "Key #1"
   key            String        @unique
+  secret         String?
   status         RvApiKeyStatus
+  selectedBy     UserSettings[] @relation("SelectedRvApiKey")
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 

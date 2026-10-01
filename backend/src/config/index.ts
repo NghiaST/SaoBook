@@ -39,6 +39,11 @@ export const config = {
     from: optional('RESEND_EMAIL_FROM', 'SaoBook <noreply@resend.dev>'),
   },
 
+  responsiveVoice: {
+    apiKey: optional('RESPONSIVEVOICE_API_KEY', ''),
+    apiSecret: optional('RESPONSIVEVOICE_API_SECRET', ''),
+  },
+
   cors: {
     origin: optional('CORS_ORIGIN', 'http://localhost:5173'),
   },

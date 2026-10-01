@@ -104,6 +104,7 @@ export const UserSettingsSchema = {
     userId:             { type: 'string' },
     ttsLanguage:        { type: 'string', enum: ['vi', 'en', 'zh'] },
     ttsVoice:           { type: 'string', enum: ['male', 'female'] },
+    selectedRvApiKeyId: { type: 'string', nullable: true },
     ttsSpeed:           { type: 'number' },
     autoNextChapter:    { type: 'boolean' },
   },

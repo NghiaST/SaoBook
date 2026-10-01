@@ -17,7 +17,17 @@ export async function getMe(request: FastifyRequest, reply: FastifyReply) {
     select: {
       id: true, username: true, email: true, name: true,
       bio: true, avatarUrl: true, role: true, createdAt: true,
-      settings: true,
+      settings: {
+        select: {
+          id: true,
+          userId: true,
+          ttsLanguage: true,
+          ttsVoice: true,
+          ttsSpeed: true,
+          autoNextChapter: true,
+          selectedRvApiKeyId: true,
+        },
+      },
     },
   })
   return reply.send(user)
@@ -135,11 +145,35 @@ export async function changePassword(request: FastifyRequest, reply: FastifyRepl
 export async function updateSettings(request: FastifyRequest, reply: FastifyReply) {
   const { id } = request.user as AuthUser
   const body = request.body as Record<string, unknown>
+  const { selectedRvApiKeyId, ...settingsBody } = body
+
+  if (selectedRvApiKeyId !== undefined && selectedRvApiKeyId !== null) {
+    const userSettingsId = await prisma.userSettings.upsert({
+      where: { userId: id },
+      create: { userId: id },
+      update: {},
+      select: { id: true },
+    })
+    const selectedKey = await prisma.rvApiKey.findFirst({
+      where: {
+        id: selectedRvApiKeyId as string,
+        OR: [
+          { status: 'public' },
+          { status: 'personal', userSettingsId: userSettingsId.id },
+        ],
+      },
+      select: { id: true },
+    })
+    if (!selectedKey) throw new ValidationError('The selected ResponsiveVoice API key is unavailable')
+  }
 
   const settings = await prisma.userSettings.upsert({
     where: { userId: id },
-    create: { userId: id, ...body },
-    update: body,
+    create: { userId: id, ...settingsBody, selectedRvApiKeyId: selectedRvApiKeyId as string | null | undefined },
+    update: {
+      ...settingsBody,
+      ...(selectedRvApiKeyId !== undefined ? { selectedRvApiKeyId: selectedRvApiKeyId as string | null } : {}),
+    },
   })
 
   return reply.send(settings)
