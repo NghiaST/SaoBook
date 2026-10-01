@@ -2,13 +2,16 @@
 CREATE TYPE "Role" AS ENUM ('user', 'author', 'admin');
 
 -- CreateEnum
-CREATE TYPE "TTSLanguage" AS ENUM ('vi', 'en', 'zh');
+CREATE TYPE "RvApiKeyStatus" AS ENUM ('personal', 'public', 'hidden');
 
 -- CreateEnum
-CREATE TYPE "TTSVoice" AS ENUM ('male', 'female');
+CREATE TYPE "RvVoiceName" AS ENUM ('Vietnamese Female', 'Vietnamese Male', 'US English Female', 'US English Male');
 
 -- CreateEnum
-CREATE TYPE "UITheme" AS ENUM ('light', 'dark');
+CREATE TYPE "RvLanguage" AS ENUM ('vi-VN', 'en-US');
+
+-- CreateEnum
+CREATE TYPE "RvGender" AS ENUM ('f', 'm');
 
 -- CreateTable
 CREATE TABLE "users" (
@@ -28,22 +31,23 @@ CREATE TABLE "users" (
 
 -- CreateTable
 CREATE TABLE "user_settings" (
-    "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "ttsLanguage" "TTSLanguage" NOT NULL DEFAULT 'vi',
-    "ttsVoice" "TTSVoice" NOT NULL DEFAULT 'female',
     "ttsSpeed" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
-    "ttsVolume" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
     "autoNextChapter" BOOLEAN NOT NULL DEFAULT false,
-    "sleepTimerMinutes" INTEGER NOT NULL DEFAULT 0,
-    "theme" "UITheme" NOT NULL DEFAULT 'light',
-    "bgColor" TEXT NOT NULL DEFAULT '#ffffff',
-    "textColor" TEXT NOT NULL DEFAULT '#1a1a1a',
-    "fontFamily" TEXT NOT NULL DEFAULT 'sans-serif',
-    "fontSize" INTEGER NOT NULL DEFAULT 16,
-    "lineHeight" DOUBLE PRECISION NOT NULL DEFAULT 1.6,
+    "selectedRvApiKeyId" TEXT,
 
-    CONSTRAINT "user_settings_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "user_settings_pkey" PRIMARY KEY ("userId")
+);
+
+-- CreateTable
+CREATE TABLE "rv_settings" (
+    "userSettingsId" TEXT NOT NULL,
+    "voiceName" "RvVoiceName" NOT NULL DEFAULT 'Vietnamese Female',
+    "language" "RvLanguage" NOT NULL DEFAULT 'vi-VN',
+    "gender" "RvGender" NOT NULL DEFAULT 'f',
+    "pitch" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+
+    CONSTRAINT "rv_settings_pkey" PRIMARY KEY ("userSettingsId")
 );
 
 -- CreateTable
@@ -149,9 +153,11 @@ CREATE TABLE "chapter_read_logs" (
 -- CreateTable
 CREATE TABLE "rv_api_keys" (
     "id" TEXT NOT NULL,
+    "userSettingsId" TEXT,
     "label" TEXT NOT NULL,
     "key" TEXT NOT NULL,
-    "active" BOOLEAN NOT NULL DEFAULT true,
+    "secret" TEXT,
+    "status" "RvApiKeyStatus" NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -163,9 +169,6 @@ CREATE UNIQUE INDEX "users_username_key" ON "users"("username");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
-
--- CreateIndex
-CREATE UNIQUE INDEX "user_settings_userId_key" ON "user_settings"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "password_resets_token_key" ON "password_resets"("token");
@@ -192,55 +195,106 @@ CREATE UNIQUE INDEX "chapter_read_logs_userId_chapterId_key" ON "chapter_read_lo
 CREATE UNIQUE INDEX "rv_api_keys_key_key" ON "rv_api_keys"("key");
 
 -- AddForeignKey
-ALTER TABLE "user_settings" ADD CONSTRAINT "user_settings_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "user_settings"
+ADD CONSTRAINT "user_settings_userId_fkey"
+FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "password_resets" ADD CONSTRAINT "password_resets_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "user_settings"
+ADD CONSTRAINT "user_settings_selectedRvApiKeyId_fkey"
+FOREIGN KEY ("selectedRvApiKeyId") REFERENCES "rv_api_keys"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "stories" ADD CONSTRAINT "stories_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "rv_settings"
+ADD CONSTRAINT "rv_settings_userSettingsId_fkey"
+FOREIGN KEY ("userSettingsId") REFERENCES "user_settings"("userId") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "chapters" ADD CONSTRAINT "chapters_storyId_fkey" FOREIGN KEY ("storyId") REFERENCES "stories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "password_resets"
+ADD CONSTRAINT "password_resets_userId_fkey"
+FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "comments" ADD CONSTRAINT "comments_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "stories"
+ADD CONSTRAINT "stories_authorId_fkey"
+FOREIGN KEY ("authorId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "comments" ADD CONSTRAINT "comments_storyId_fkey" FOREIGN KEY ("storyId") REFERENCES "stories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "chapters"
+ADD CONSTRAINT "chapters_storyId_fkey"
+FOREIGN KEY ("storyId") REFERENCES "stories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "comments" ADD CONSTRAINT "comments_chapterId_fkey" FOREIGN KEY ("chapterId") REFERENCES "chapters"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "comments"
+ADD CONSTRAINT "comments_userId_fkey"
+FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "comments" ADD CONSTRAINT "comments_parentCommentId_fkey" FOREIGN KEY ("parentCommentId") REFERENCES "comments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "comments"
+ADD CONSTRAINT "comments_storyId_fkey"
+FOREIGN KEY ("storyId") REFERENCES "stories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "reviews" ADD CONSTRAINT "reviews_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "comments"
+ADD CONSTRAINT "comments_chapterId_fkey"
+FOREIGN KEY ("chapterId") REFERENCES "chapters"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "reviews" ADD CONSTRAINT "reviews_storyId_fkey" FOREIGN KEY ("storyId") REFERENCES "stories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "comments"
+ADD CONSTRAINT "comments_parentCommentId_fkey"
+FOREIGN KEY ("parentCommentId") REFERENCES "comments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "bookshelves" ADD CONSTRAINT "bookshelves_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "reviews"
+ADD CONSTRAINT "reviews_userId_fkey"
+FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "bookshelves" ADD CONSTRAINT "bookshelves_storyId_fkey" FOREIGN KEY ("storyId") REFERENCES "stories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "reviews"
+ADD CONSTRAINT "reviews_storyId_fkey"
+FOREIGN KEY ("storyId") REFERENCES "stories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "reading_histories" ADD CONSTRAINT "reading_histories_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "bookshelves"
+ADD CONSTRAINT "bookshelves_userId_fkey"
+FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "reading_histories" ADD CONSTRAINT "reading_histories_storyId_fkey" FOREIGN KEY ("storyId") REFERENCES "stories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "bookshelves"
+ADD CONSTRAINT "bookshelves_storyId_fkey"
+FOREIGN KEY ("storyId") REFERENCES "stories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "reading_histories" ADD CONSTRAINT "reading_histories_lastChapterId_fkey" FOREIGN KEY ("lastChapterId") REFERENCES "chapters"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "reading_histories"
+ADD CONSTRAINT "reading_histories_userId_fkey"
+FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "chapter_read_logs" ADD CONSTRAINT "chapter_read_logs_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "reading_histories"
+ADD CONSTRAINT "reading_histories_storyId_fkey"
+FOREIGN KEY ("storyId") REFERENCES "stories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "chapter_read_logs" ADD CONSTRAINT "chapter_read_logs_chapterId_fkey" FOREIGN KEY ("chapterId") REFERENCES "chapters"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "reading_histories"
+ADD CONSTRAINT "reading_histories_lastChapterId_fkey"
+FOREIGN KEY ("lastChapterId") REFERENCES "chapters"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "chapter_read_logs" ADD CONSTRAINT "chapter_read_logs_storyId_fkey" FOREIGN KEY ("storyId") REFERENCES "stories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "chapter_read_logs"
+ADD CONSTRAINT "chapter_read_logs_userId_fkey"
+FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "chapter_read_logs"
+ADD CONSTRAINT "chapter_read_logs_chapterId_fkey"
+FOREIGN KEY ("chapterId") REFERENCES "chapters"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "chapter_read_logs"
+ADD CONSTRAINT "chapter_read_logs_storyId_fkey"
+FOREIGN KEY ("storyId") REFERENCES "stories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rv_api_keys"
+ADD CONSTRAINT "rv_api_keys_userSettingsId_fkey"
+FOREIGN KEY ("userSettingsId") REFERENCES "user_settings"("userId") ON DELETE CASCADE ON UPDATE CASCADE;
