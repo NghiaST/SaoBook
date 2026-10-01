@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store/auth.store'
 import type {
   User, Story, Chapter, Comment, MyComment, Review,
   BookshelfItem, ReadingHistoryItem, UserSettings, LoginResponse,
-  RvApiKey, ResponsiveVoice,
+  RvApiKey, ResponsiveVoice, AdminBooksResponse,
 } from '@/types'
 
 /** Only fire user-specific queries once we actually hold an access token. */
@@ -437,6 +437,18 @@ export const useAdminUsers = (
   return useQuery({
     queryKey: ['admin-users', params],
     queryFn: () => api.get('/admin/users', { params }).then((r) => r.data),
+    placeholderData: keepPreviousData,
+    enabled: isAuthenticated,
+  })
+}
+
+export const useAdminBooks = (
+  params: { q?: string; authorId?: string; page?: number; limit?: number } = {},
+) => {
+  const isAuthenticated = useIsAuthenticated()
+  return useQuery({
+    queryKey: ['admin-books', params],
+    queryFn: () => api.get<AdminBooksResponse>('/admin/books', { params }).then((r) => r.data),
     placeholderData: keepPreviousData,
     enabled: isAuthenticated,
   })

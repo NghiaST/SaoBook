@@ -69,6 +69,22 @@ export interface Story {
   _count?: { chapters: number; reviews: number }
 }
 
+export interface AdminBook extends Story {
+  _count?: {
+    chapters: number
+    reviews: number
+    comments: number
+    chapterReadLogs: number
+  }
+}
+
+export interface AdminBooksResponse {
+  books: AdminBook[]
+  total: number
+  page: number
+  limit: number
+}
+
 export interface Chapter {
   id: number
   name: string
