@@ -1,21 +1,55 @@
-# SaoBook
+# SaoBook - An online story reading platform
 
-SaoBook is a full-stack story reading application. It provides story and chapter management, authentication, reading history, bookshelves, comments, reviews, text-to-speech controls, and separate author/admin workflows.
+SaoBook is an online platform for reading and listening to digital stories, designed to provide a comfortable, flexible, and seamless reading experience. The platform allows users to discover stories, read chapters online, manage their personal bookshelves, track reading history, and listen to story content through integrated text-to-speech (TTS) features.
+
+---
+
+## Features
+
+- **Reading:** distraction-free chapter reader with adjustable font, line height, colors and width; table of contents and keyboard navigation (← / →)
+- **Text-to-speech:** reads the chapter title and body, click any paragraph to jump, auto-play next chapter, sleep timer, two engines (browser SpeechSynthesis and backend audio) with retry and error handling
+- **Library:** bookshelves, reading history, and read-progress tracking
+- **Community:** comments and reviews
+- **Accounts:** registration, login, email flows, JWT access/refresh tokens
+- **Authors and admins:** separate workflows for managing stories, chapters and content
+
+## Live Demo
+
+Try it online: **[web.saobook.app](https://web.saobook.app)**
+
+| Service | Link |
+| --- | --- |
+| Web app (Vercel) | [https://web.saobook.app](https://web.saobook.app) |
+| API health check (Render) | [https://api.saobook.app/health](https://api.saobook.app/health) |
+
+> The API runs on a free instance that sleeps when idle, so the first request after a while can take a few seconds.
+
+## Demo Accounts
+ 
+Use these sample accounts to explore each role on the live demo:
+ 
+| Role | Username | Password | Email |
+| --- | --- | --- | --- |
+| Admin | `admin` | `123456789` | admin@gmail.com |
+| Author | `author` | `123456789` | author@gmail.com |
+| User | `user` | `123456789` | user@gmail.com |
 
 ## Stack
 
-- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, React Router, TanStack Query, Zustand
-- **Backend:** Node.js, Fastify, TypeScript, Prisma, PostgreSQL
-- **Storage:** S3-compatible object storage, configured for Cloudflare R2
-- **Authentication:** JWT access and refresh tokens
-- **Email:** Resend
-- **API documentation:** Swagger UI in development
+| Area | Technology |
+| --- | --- |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, React Router, TanStack Query, Zustand |
+| Backend | Node.js, Fastify, TypeScript, Prisma |
+| Database | PostgreSQL |
+| Storage | S3-compatible object storage (Cloudflare R2) |
+| Authentication | JWT access and refresh tokens |
+| Email | Resend |
+| API docs | Swagger UI (development only) |
+| Hosting | Frontend on Vercel, backend on Render |
 
 ## Documentation
 
-Project documentation is organized under the docs folder so the architectural notes, stack summary, and implementation context are easy to find.
-
-- [docs/ClassDiagramAndUseCase.md](docs/ClassDiagramAndUseCase.md) - current domain model and use-case specification
+- [docs/ClassDiagramAndUseCase.md](docs/ClassDiagramAndUseCase.md) - domain model and use-case specification
 - [docs/Stack.md](docs/Stack.md) - technology stack summary
 
 ## Repository Layout
@@ -64,111 +98,30 @@ project-root/
 └── .gitignore
 ```
 
-## Prerequisites
+## Run Locally
 
-- Node.js with npm
-- A PostgreSQL database. Supabase PostgreSQL works with the current Prisma configuration.
-- An S3-compatible bucket. Cloudflare R2 is the configured deployment target.
-- A Resend API key for email features
-
-## Local Setup
-
-Install dependencies in both applications:
+**Prerequisites:** Node.js with npm, a PostgreSQL database, an S3-compatible bucket (Cloudflare R2), and a Resend API key.
 
 ```bash
+# Backend
 cd backend
 npm install
+cp .env.example .env        # fill in the values
 npm run db:generate
 npm run db:migrate:dev
-
-cd ../frontend
-npm install
-```
-
-Create `backend/.env` with the required values before starting the API. Secrets must stay local and must not be committed.
-
-### Backend environment variables
-
-Required:
-
-```dotenv
-DATABASE_URL=postgresql://...
-DIRECT_URL=postgresql://...
-JWT_ACCESS_SECRET=replace-with-a-long-random-value
-JWT_REFRESH_SECRET=replace-with-a-long-random-value
-R2_ACCOUNT_ID=...
-R2_ACCESS_KEY_ID=...
-R2_SECRET_ACCESS_KEY=...
-R2_BUCKET_NAME=...
-R2_PUBLIC_URL=https://...
-RESEND_API_KEY=...
-```
-
-Optional values and defaults:
-
-```dotenv
-NODE_ENV=development
-PORT=3000
-HOST=0.0.0.0
-JWT_ACCESS_EXPIRES_IN=15m
-JWT_REFRESH_EXPIRES_IN=30d
-RESEND_EMAIL_FROM=SaoBook
-CORS_ORIGIN=http://localhost:5173
-FRONTEND_URL=http://localhost:5173
-```
-
-`DATABASE_URL` is used by the application connection and `DIRECT_URL` is used by Prisma migrations. Use a direct PostgreSQL connection for `DIRECT_URL` when your provider also supplies a pooled connection URL.
-
-### Frontend environment variables
-
-Create `frontend/.env.local` when the API is not available at the Vite proxy or `/api` path:
-
-```dotenv
-VITE_API_URL=http://localhost:3000/api
-```
-
-## Running Locally
-
-Start the backend and frontend in separate terminals:
-
-```bash
-# Terminal 1
-cd backend
 npm run dev
 
-# Terminal 2
+# Frontend (new terminal)
 cd frontend
+npm install
 npm run dev
 ```
 
-The default local URLs are:
-
-- Frontend: `http://localhost:5173`
-- Backend health check: `http://localhost:3000/health`
-- Swagger UI: `http://localhost:3000/docs` (development only)
-
-## Common Commands
-
-### Backend
-
-```bash
-npm run build          # Compile TypeScript
-npm run start          # Run the compiled API
-npm run lint           # Lint backend source
-npm run db:generate   # Generate Prisma Client
-npm run db:migrate    # Apply committed migrations
-npm run db:migrate:dev
-npm run db:studio
-npm run db:seed
-```
-
-### Frontend
-
-```bash
-npm run build          # Type-check and build for production
-npm run preview        # Preview the production build
-npm run lint           # Lint frontend source
-```
+| Service | URL |
+| --- | --- |
+| Frontend | http://localhost:5173 |
+| Backend health check | http://localhost:3000/health |
+| Swagger UI (development only) | http://localhost:3000/docs |
 
 ## Database Workflow
 
@@ -182,9 +135,8 @@ Do not edit an already-applied migration to change production data. Create a new
 
 ## Deployment
 
-The backend includes `backend/render.yaml` for Render deployment. It builds the Prisma client, compiles the API, applies migrations, and exposes `/health` as its health check. Configure all secret environment variables in the hosting provider rather than in Git.
-
-The frontend includes `frontend/vercel.json` for a Vercel deployment with SPA rewrites and security response headers. Set `VITE_API_URL` to the deployed backend API URL during the frontend build.
+- **Backend:** `backend/render.yaml` builds the Prisma client, compiles the API, applies migrations, and uses `/health` as the health check.
+- **Frontend:** `frontend/vercel.json` configures SPA rewrites and security headers. Set `VITE_API_URL` to the deployed backend API URL at build time.
 
 ## Security Notes
 
