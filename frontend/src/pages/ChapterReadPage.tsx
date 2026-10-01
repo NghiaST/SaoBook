@@ -1,8 +1,11 @@
 // src/pages/ChapterReadPage.tsx
-import { useEffect, useRef, useState, useCallback } from 'react'
+import {
+  useCallback, useEffect, useMemo, useRef, useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useChapter, useChapterList, useMarkChapterRead } from '@/lib/queries'
-import { useTTSStore } from '@/store/tts.store'
+import { useTTSStore, type RvAudioStatus } from '@/store/tts.store'
 import { useSettingsStore } from '@/store/settings.store'
 import { useAuthStore } from '@/store/auth.store'
 import { useScrollHide } from '@/hooks/useScrollHide'
@@ -12,42 +15,73 @@ import { ChevronLeft, ChevronRight, List, Play, Pause, Square } from 'lucide-rea
 import axios from 'axios'
 import '@/styles/reader.css'
 
+const EMPTY_PARAGRAPHS: string[] = []
+
+function countStatus(statuses: Record<number, RvAudioStatus>, wanted: RvAudioStatus) {
+  let n = 0
+  for (const key in statuses) if (statuses[key] === wanted) n++
+  return n
+}
+
 export function ChapterReadPage() {
   const { nameId, chapterId: chapterIdParam } = useParams<{ nameId: string; chapterId: string }>()
   const chapterId = chapterIdParam ? Number(chapterIdParam) : NaN
   const navigate = useNavigate()
 
-  const { isAuthenticated }                                                       = useAuthStore()
-  const { fontSize, lineHeight, fontFamily, bgColor, textColor, readerMaxWidth }  = useSettingsStore()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const {
+    fontSize, lineHeight, fontFamily, bgColor, textColor, readerMaxWidth,
     ttsLanguage, ttsVoice, ttsVoiceName, ttsSpeed, ttsPitch, ttsVolume,
     ttsMode, autoNextChapter, sleepTimerMinutes,
   } = useSettingsStore()
 
-  const markRead = useMarkChapterRead()
-  const {
-    stop, status, currentParagraphIndex, chapterId: ttsChapterId, play, pause, resume,
-    rvAudioStatuses, rvAudioTotal,
-  } = useTTSStore()
+  const { mutate: markReadMutate } = useMarkChapterRead()
+
+  // Selectors: only re-render when the specific value changes
+  const status                = useTTSStore((s) => s.status)
+  const currentParagraphIndex = useTTSStore((s) => s.currentParagraphIndex)
+  const ttsChapterId          = useTTSStore((s) => s.chapterId)
+  const ttsErrorRaw           = useTTSStore((s) => s.error)
+  const rvAudioTotal          = useTTSStore((s) => s.rvAudioTotal)
+  const rvAudioLoaded         = useTTSStore((s) => countStatus(s.rvAudioStatuses, 'loaded'))
+  const rvAudioErrors         = useTTSStore((s) => countStatus(s.rvAudioStatuses, 'error'))
+  const { play, pause, resume, stop, retry, clearError } = useTTSStore.getState() // stable actions
 
   const { data: chapter, isLoading } = useChapter(chapterId)
   const { data: chapters }           = useChapterList(nameId!)
 
-  const [content,        setContent]        = useState<string | null>(null)
-  const [paragraphs,     setParagraphs]     = useState<string[]>([])
-  const [contentLoading, setContentLoading] = useState(false)
-  const [showTOC,        setShowTOC]        = useState(false)
+  // Content is stored together with the chapter it belongs to, so it can never be
+  // shown (or spoken) under the wrong chapter.
+  const [loaded,     setLoaded]     = useState<{ id: number; paragraphs: string[] } | null>(null)
+  const [failedId,   setFailedId]   = useState<number | null>(null)
+  const [reloadKey,  setReloadKey]  = useState(0)
+  const [showTOC,    setShowTOC]    = useState(false)
 
-  const ttsTriggeredNav = useRef(false)
-  const paragraphRefs   = useRef<(HTMLParagraphElement | null)[]>([])
+  const paragraphs     = loaded?.id === chapterId ? loaded.paragraphs : EMPTY_PARAGRAPHS
+  const contentError   = failedId === chapterId
+  const contentLoading = loaded?.id !== chapterId && !contentError
+
+  // TTS block 0 = chapter title, block i + 1 = paragraph i
+  const titleText = chapter ? (chapter.name?.replace(/\s+/g, ' ').trim() || `Chương ${chapter.order}`) : ''
+  const ttsText   = useMemo(
+    () => (titleText ? [titleText, ...paragraphs].join('\n') : ''),
+    [titleText, paragraphs],
+  )
+
+  const blockRefs        = useRef<(HTMLElement | null)[]>([])
   const completedChapter = useRef<number | null>(null)
+  /** Id of the chapter we navigated to from TTS and must auto-play once its content is loaded. */
+  const pendingAutoPlay  = useRef<number | null>(null)
 
   const isTTSThisChapter = ttsChapterId === chapterId
-  const isPlaying        = isTTSThisChapter && status === 'playing'
+  const isPlaying        = isTTSThisChapter && (status === 'playing' || status === 'loading')
   const isPaused         = isTTSThisChapter && status === 'paused'
-  const ttsActive        = isTTSThisChapter && (isPlaying || isPaused)
-  const rvAudioLoaded = Object.values(rvAudioStatuses).filter((value) => value === 'loaded').length
+  const ttsActive        = isPlaying || isPaused
+  const ttsError         = isTTSThisChapter ? ttsErrorRaw : null
+
+  const rvSettled      = rvAudioLoaded + rvAudioErrors
   const showRvProgress = ttsMode === 'responsivevoice' && isTTSThisChapter && rvAudioTotal > 0
+                         && (rvSettled < rvAudioTotal || rvAudioErrors > 0)
 
   const scrollHidden = useScrollHide(20)
 
@@ -55,7 +89,7 @@ export function ChapterReadPage() {
 
   const currentIndex = chapters?.findIndex((c) => c.id === chapterId) ?? -1
   const prevChapter  = currentIndex > 0 ? chapters![currentIndex - 1] : null
-  const nextChapter  = currentIndex < (chapters?.length ?? 0) - 1 ? chapters![currentIndex + 1] : null
+  const nextChapter  = currentIndex >= 0 && currentIndex < (chapters?.length ?? 0) - 1 ? chapters![currentIndex + 1] : null
 
   const goNext = useCallback(() => {
     if (nextChapter) navigate(`/stories/${nameId}/chapters/${nextChapter.id}`)
@@ -65,120 +99,161 @@ export function ChapterReadPage() {
     if (prevChapter) navigate(`/stories/${nameId}/chapters/${prevChapter.id}`)
   }, [prevChapter, nameId, navigate])
 
+  // onEnd is created when playback starts; read the *latest* next chapter from a ref
+  // so it never uses a stale closure (e.g. chapter list loaded after Play was pressed).
+  const latest = useRef({ nextChapterId: null as number | null, nameId })
+  useEffect(() => {
+    latest.current = { nextChapterId: nextChapter?.id ?? null, nameId }
+  })
+
   // ── TTS helpers ─────────────────────────────────────────────────────────────
 
   const ttsSettings = useCallback(() => ({
-    mode:              ttsMode,
-    lang:              ttsLanguage,
-    voice:             ttsVoice,
-    voiceName:         ttsVoiceName,
-    speed:             ttsSpeed,
-    pitch:             ttsPitch,
-    volume:            ttsVolume,
+    mode:      ttsMode,
+    lang:      ttsLanguage,
+    voice:     ttsVoice,
+    voiceName: ttsVoiceName,
+    speed:     ttsSpeed,
+    pitch:     ttsPitch,
+    volume:    ttsVolume,
     sleepTimerMinutes,
     onEnd: autoNextChapter
       ? () => {
-          ttsTriggeredNav.current = true
-          goNext()
+          const { nextChapterId, nameId: story } = latest.current
+          if (nextChapterId === null) return
+          pendingAutoPlay.current = nextChapterId
+          navigate(`/stories/${story}/chapters/${nextChapterId}`)
         }
       : undefined,
-  }), [ttsMode, ttsLanguage, ttsVoice, ttsVoiceName, ttsSpeed, ttsPitch, ttsVolume, sleepTimerMinutes, autoNextChapter, goNext])
+  }), [ttsMode, ttsLanguage, ttsVoice, ttsVoiceName, ttsSpeed, ttsPitch, ttsVolume, sleepTimerMinutes, autoNextChapter, navigate])
 
   const handlePlayPause = () => {
-    if (isPlaying) { pause(); return }
-    if (isPaused)  { resume(); return }
-    if (content) {
-      play(content, chapterId, ttsSettings())
-    }
+    pendingAutoPlay.current = null
+    if (isPlaying) return pause()
+    if (isPaused)  return resume()
+    if (paragraphs.length === 0) return
+    play(ttsText, chapterId, ttsSettings()) // the title is spoken first
   }
 
-  const handleStop = () => stop()
+  const handleStop = () => {
+    pendingAutoPlay.current = null
+    stop()
+  }
+
+  const handleRetryTTS = () => retry(ttsSettings())
+
+  const handleBlockClick = (index: number) => {
+    if (!ttsActive) return
+    useTTSStore.getState().jumpToParagraph(index, { ...ttsSettings(), sleepTimerMinutes: 0 })
+  }
+
+  /** Props that make the title / a paragraph a clickable, keyboard-accessible "jump" target. */
+  const blockProps = (index: number) => ttsActive
+    ? {
+        onClick: () => handleBlockClick(index),
+        onKeyDown: (e: ReactKeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            handleBlockClick(index)
+          }
+        },
+        role: 'button' as const,
+        tabIndex: 0,
+      }
+    : {}
+
+  const retryContent = () => {
+    setFailedId(null)
+    setReloadKey((k) => k + 1)
+  }
 
   // ── Effects ─────────────────────────────────────────────────────────────────
 
-  // Fetch content
+  // Fetch chapter content (abortable; failures are surfaced, never injected as text)
   useEffect(() => {
-    if (!chapter?.contentUrl) return
-    setContentLoading(true)
-    axios.get<string>(chapter.contentUrl, { responseType: 'text' })
-      .then((r) => {
-        setContent(r.data)
-        setParagraphs(r.data.split('\n').map((s) => s.trim()).filter(Boolean))
-      })
-      .catch(() => setContent('Không thể tải nội dung chương này.'))
-      .finally(() => setContentLoading(false))
-  }, [chapter?.contentUrl])
+    if (!chapter) return
+    if (!chapter.contentUrl) {
+      setFailedId(chapter.id)
+      return
+    }
+    const controller = new AbortController()
+    setFailedId((prev) => (prev === chapter.id ? null : prev))
 
-  // When switching chapters
+    axios.get<string>(chapter.contentUrl, {
+      responseType: 'text',
+      signal: controller.signal,
+      timeout: 20_000,
+    })
+      .then((r) => {
+        const lines = String(r.data).split('\n').map((s) => s.trim()).filter(Boolean)
+        // The title is rendered/spoken separately; drop it if the file repeats it
+        if (lines[0]?.toLowerCase() === chapter.name.trim().toLowerCase()) lines.shift()
+        setLoaded({ id: chapter.id, paragraphs: lines })
+      })
+      .catch((e) => {
+        if (axios.isCancel(e)) return
+        pendingAutoPlay.current = null
+        setFailedId(chapter.id)
+      })
+
+    return () => controller.abort()
+  }, [chapter?.id, chapter?.contentUrl, chapter?.name, reloadKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Chapter switch: stop TTS unless TTS itself navigated here (auto-next)
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
-    if (ttsTriggeredNav.current) {
-      ttsTriggeredNav.current = false
-    } else {
-      stop()
-    }
-  }, [chapterId])
+    if (pendingAutoPlay.current === chapterId) return
+    pendingAutoPlay.current = null
+    stop()
+  }, [chapterId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Continue reading after TTS automatically switches chapters
+  // Auto-continue: start once the NEW chapter's content has actually loaded
   useEffect(() => {
-    if (!content || !autoNextChapter) return
-    const { status: s, chapterId: ttsId } = useTTSStore.getState()
-    if (s === 'idle' && ttsId !== chapterId && ttsTriggeredNav.current === false) {
-      const prevId = useTTSStore.getState().chapterId
-      if (prevId !== null && prevId !== chapterId) {
-        play(content, chapterId, ttsSettings())
-      }
-    }
-  }, [content])
+    if (pendingAutoPlay.current !== chapterId || paragraphs.length === 0) return
+    pendingAutoPlay.current = null
+    play(ttsText, chapterId, { ...ttsSettings(), keepSleepTimer: true })
+  }, [paragraphs]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset completion state when navigating to another chapter.
-  useEffect(() => {
-    completedChapter.current = null
-    paragraphRefs.current = []
-  }, [chapterId])
-
-  // Mark the chapter complete once its final paragraph is visible.
+  // Mark the chapter read once its final paragraph (last block) is visible
   useEffect(() => {
     if (!isAuthenticated || !Number.isFinite(chapterId) || paragraphs.length === 0) return
-
-    const lastParagraph = paragraphRefs.current[paragraphs.length - 1]
-    if (!lastParagraph) return
+    const last = blockRefs.current[paragraphs.length]
+    if (!last) return
 
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && completedChapter.current !== chapterId) {
         completedChapter.current = chapterId
-        markRead.mutate(chapterId)
+        markReadMutate(chapterId)
       }
-    }, { threshold: 0.75 })
+    }, { threshold: 0.5 }) // 0.75 can never be reached by a very tall paragraph
 
-    observer.observe(lastParagraph)
+    observer.observe(last)
     return () => observer.disconnect()
-  }, [chapterId, isAuthenticated, markRead, paragraphs.length])
+  }, [chapterId, isAuthenticated, markReadMutate, paragraphs.length])
 
-  // Scroll to active paragraph
+  // Scroll to the active block (title included)
   useEffect(() => {
     if (!ttsActive) return
-    paragraphRefs.current[currentParagraphIndex]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    blockRefs.current[currentParagraphIndex]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [currentParagraphIndex, ttsActive])
 
   // Keyboard nav
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (e.metaKey || e.ctrlKey || e.altKey) return // Alt+← is browser back
+      const t = e.target
+      if (
+        t instanceof HTMLInputElement ||
+        t instanceof HTMLTextAreaElement ||
+        t instanceof HTMLSelectElement ||
+        (t instanceof HTMLElement && t.isContentEditable)
+      ) return
       if (e.key === 'ArrowRight') goNext()
       if (e.key === 'ArrowLeft')  goPrev()
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [goNext, goPrev])
-
-  const handleParagraphClick = (index: number) => {
-    if (!ttsActive) return
-    useTTSStore.getState().jumpToParagraph(index, {
-      ...ttsSettings(),
-      sleepTimerMinutes: 0,
-    })
-  }
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -203,11 +278,12 @@ export function ChapterReadPage() {
           <div className="reader-topnav__actions">
             <button
               onClick={handlePlayPause}
-              className={cn('reader-tts-btn', isPlaying || isPaused ? 'reader-tts-btn--stop' : 'reader-tts-btn--play')}
+              disabled={!ttsActive && paragraphs.length === 0}
+              className={cn('reader-tts-btn', ttsActive ? 'reader-tts-btn--stop' : 'reader-tts-btn--play')}
               title={isPlaying ? 'Tạm dừng' : isPaused ? 'Tiếp tục' : 'Nghe'}
             >
               {isPlaying
-                ? <><Pause size={14} /><span className="hidden sm:inline">Dừng</span></>
+                ? <><Pause size={14} /><span className="hidden sm:inline">Tạm dừng</span></>
                 : isPaused
                   ? <><Play  size={14} /><span className="hidden sm:inline">Tiếp tục</span></>
                   : <><Play  size={14} /><span className="hidden sm:inline">Nghe</span></>
@@ -262,23 +338,69 @@ export function ChapterReadPage() {
         )}
       </div>
 
+      {/* ── TTS error banner ────────────────────────────────────────────── */}
+      {ttsError && (
+        <div
+          role="alert"
+          className="mx-auto mt-3 flex w-[min(92%,48rem)] flex-wrap items-center justify-between gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-500"
+        >
+          <span>{ttsError}</span>
+          <span className="flex gap-2">
+            {status === 'paused'
+              ? <button onClick={resume} className="reader-nav-btn">Tiếp tục</button>
+              : <button onClick={handleRetryTTS} className="reader-nav-btn">Thử lại</button>}
+            <button onClick={clearError} className="reader-nav-btn">Đóng</button>
+          </span>
+        </div>
+      )}
+
+      {/* ── ResponsiveVoice download progress ───────────────────────────── */}
       {showRvProgress && (
         <div className="mx-auto mt-3 w-[min(92%,48rem)] rounded-lg border border-[var(--border)] bg-[var(--bg-alt)] px-3 py-2 text-xs text-[var(--text-muted)]">
           <div className="mb-1 flex items-center justify-between gap-3">
-            <span>Đang tải audio</span>
+            <span>
+              {rvSettled < rvAudioTotal ? 'Đang tải audio' : 'Đã tải audio'}
+              {rvAudioErrors > 0 && ` · ${rvAudioErrors} đoạn lỗi (sẽ bị bỏ qua)`}
+            </span>
             <span>{rvAudioLoaded}/{rvAudioTotal}</span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-[var(--border)]" role="progressbar" aria-valuemin={0} aria-valuemax={rvAudioTotal} aria-valuenow={rvAudioLoaded}>
-            <div className="h-full rounded-full bg-accent transition-[width] duration-300" style={{ width: `${(rvAudioLoaded / rvAudioTotal) * 100}%` }} />
+          <div
+            className="h-1.5 overflow-hidden rounded-full bg-[var(--border)]"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={rvAudioTotal}
+            aria-valuenow={rvAudioLoaded}
+          >
+            <div
+              className="h-full rounded-full bg-accent transition-[width] duration-300"
+              style={{ width: `${(rvAudioLoaded / rvAudioTotal) * 100}%` }}
+            />
           </div>
         </div>
       )}
 
       {/* ── Content ─────────────────────────────────────────────────────── */}
       <div className="reader-content-wrap" style={{ maxWidth: readerMaxWidth }}>
-        <h1 className="reader-title" style={{ color: textColor }}>{chapter.name}</h1>
+        <h1
+          ref={(el) => { blockRefs.current[0] = el }}
+          className={cn(
+            'reader-title',
+            ttsActive && 'reader-para--clickable',
+            ttsActive && currentParagraphIndex === 0 && 'reader-para--active',
+          )}
+          style={{ color: textColor }}
+          title={ttsActive ? 'Nhảy đến tiêu đề' : undefined}
+          {...blockProps(0)}
+        >
+          {chapter.name}
+        </h1>
 
-        {contentLoading ? (
+        {contentError ? (
+          <div className="py-16 text-center text-[var(--text-muted)]">
+            <p className="mb-3">Không thể tải nội dung chương này.</p>
+            <button onClick={retryContent} className="reader-nav-btn">Thử lại</button>
+          </div>
+        ) : contentLoading ? (
           <div className="flex justify-center py-16"><Spinner /></div>
         ) : (
           <div
@@ -292,19 +414,20 @@ export function ChapterReadPage() {
             }}
           >
             {paragraphs.map((para, i) => {
-              const isCurrentTTS = ttsActive && currentParagraphIndex === i
+              const block     = i + 1
+              const isCurrent = ttsActive && currentParagraphIndex === block
               return (
                 <p
                   key={i}
-                  ref={(el) => { paragraphRefs.current[i] = el }}
-                  onClick={() => handleParagraphClick(i)}
+                  ref={(el) => { blockRefs.current[block] = el }}
                   className={cn(
                     'reader-para',
-                    ttsActive    && 'reader-para--clickable',
-                    isCurrentTTS && 'reader-para--active',
-                    ttsActive && !isCurrentTTS && i < currentParagraphIndex && 'reader-para--past',
+                    ttsActive && 'reader-para--clickable',
+                    isCurrent && 'reader-para--active',
+                    ttsActive && !isCurrent && block < currentParagraphIndex && 'reader-para--past',
                   )}
-                  title={ttsActive ? `Nhảy đến đoạn ${i + 1}` : undefined}
+                  title={ttsActive ? `Nhảy đến đoạn ${block}` : undefined}
+                  {...blockProps(block)}
                 >
                   {para}
                 </p>
@@ -329,7 +452,7 @@ export function ChapterReadPage() {
 
       {ttsActive && (
         <button onClick={handleStop} className="reader-tts-fab reader-tts-fab--stop">
-          <Square size={16} /> Dừng đọc
+          <Square size={16} /> Dừng
         </button>
       )}
 
