@@ -13,6 +13,12 @@ const idParam = {
   properties: { id: { type: 'string' } },
 }
 
+type AudioBody = {
+  text: string
+  ttsLanguage?: 'vi' | 'en' | 'zh'
+  ttsVoice?: 'male' | 'female'
+}
+
 type IdParam = { Params: { id: string } }
 
 const KeySchema = {
@@ -29,6 +35,31 @@ const KeySchema = {
 }
 
 export async function ttsRoutes(app: FastifyInstance) {
+  app.post<{ Body: AudioBody }>('/audio', {
+    ...auth,
+    schema: {
+      ...tag, ...bearer,
+      summary: 'Stream ResponsiveVoice audio',
+      description: 'Streams audio for the supplied text using the user\'s TTS language and voice settings.',
+      body: {
+        type: 'object',
+        required: ['text'],
+        additionalProperties: false,
+        properties: {
+          text:        { type: 'string', minLength: 1, maxLength: 300 },
+          ttsLanguage: { type: 'string', enum: ['vi', 'en', 'zh'] },
+          ttsVoice:    { type: 'string', enum: ['male', 'female'] },
+        },
+      },
+      response: {
+        200: { type: 'string', format: 'binary', description: 'Audio/mpeg stream' },
+        401: { description: 'Authentication required', ...ErrorSchema },
+        422: { description: 'Invalid TTS request', ...ErrorSchema },
+        503: { description: 'No ResponsiveVoice key is available', ...ErrorSchema },
+      },
+    },
+  }, handler.streamAudio)
+
   // ── Public: frontend fetches visible keys for ResponsiveVoice ──────────────
   // Require authentication to prevent excessive key scraping
   app.get('/keys/active', {

@@ -1,9 +1,30 @@
 // src/modules/tts/tts.handler.ts
 import { FastifyRequest, FastifyReply } from 'fastify'
+import { Readable } from 'node:stream'
 import prisma from '../../prisma/client'
-import { ForbiddenError, NotFoundError, ValidationError } from '../../common/exceptions'
+import { AppError, ForbiddenError, NotFoundError, ValidationError } from '../../common/exceptions'
 
 type AuthUser = { id: string; role: string }
+
+type AudioRequest = FastifyRequest<{
+  Body: {
+    text: string
+    ttsLanguage?: 'vi' | 'en' | 'zh'
+    ttsVoice?: 'male' | 'female'
+  }
+}>
+
+const languageCodes = {
+  vi: 'vi',
+  en: 'en-US',
+  zh: 'zh-CN',
+} as const
+
+const voiceNames = {
+  vi: { male: 'Vietnamese Male', female: 'Vietnamese Female' },
+  en: { male: 'US English Male', female: 'US English Female' },
+  zh: { male: 'Chinese Male', female: 'Chinese Female' },
+} as const
 
 async function getUserSettingsId(userId: string) {
   const settings = await prisma.userSettings.upsert({
@@ -13,6 +34,50 @@ async function getUserSettingsId(userId: string) {
     select: { id: true },
   })
   return settings.id
+}
+
+export async function streamAudio(request: AudioRequest, reply: FastifyReply) {
+  const { id: userId } = request.user as AuthUser
+  const { text, ttsLanguage, ttsVoice } = request.body
+  const settings = await prisma.userSettings.upsert({
+    where: { userId },
+    create: { userId },
+    update: {},
+    select: { id: true, ttsLanguage: true, ttsVoice: true },
+  })
+  const language = ttsLanguage ?? settings.ttsLanguage
+  const voice = ttsVoice ?? settings.ttsVoice
+  const apiKey = await prisma.rvApiKey.findFirst({
+    where: {
+      OR: [
+        { status: 'public' },
+        { status: 'personal', userSettingsId: settings.id },
+      ],
+    },
+    orderBy: { createdAt: 'asc' },
+    select: { key: true },
+  })
+
+  if (!apiKey) {
+    throw new AppError(503, 'TTS_PROVIDER_UNAVAILABLE', 'No ResponsiveVoice API key is available')
+  }
+
+  const providerUrl = new URL('https://code.responsivevoice.org/getvoice.php')
+  providerUrl.search = new URLSearchParams({
+    t: text,
+    tl: languageCodes[language],
+    vn: voiceNames[language][voice],
+    key: apiKey.key,
+  }).toString()
+
+  const providerResponse = await fetch(providerUrl)
+  const contentType = providerResponse.headers.get('content-type') ?? ''
+  if (!providerResponse.ok || !providerResponse.body || !contentType.startsWith('audio/')) {
+    throw new AppError(502, 'TTS_PROVIDER_ERROR', 'ResponsiveVoice could not generate audio')
+  }
+
+  reply.type(contentType)
+  return reply.send(Readable.fromWeb(providerResponse.body as globalThis.ReadableStream<Uint8Array>))
 }
 
 // ── Admin: CRUD keys ──────────────────────────────────────────────────────────
