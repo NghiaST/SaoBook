@@ -126,12 +126,28 @@ export async function streamAudio(request: AudioRequest, reply: FastifyReply) {
 
 export async function listVoices(request: VoiceRequest, reply: FastifyReply) {
   const { apiKey, apiSecret } = config.responsiveVoice
+
   if (!apiKey || !apiSecret) {
-    throw new AppError(503, 'TTS_PROVIDER_UNAVAILABLE', 'ResponsiveVoice credentials are not configured')
+    throw new AppError(
+      503,
+      'TTS_PROVIDER_UNAVAILABLE',
+      'ResponsiveVoice credentials are not configured',
+    )
+  }
+
+  const supportedLanguages = ['vi-VN', 'en-US'] as const
+  const { language } = request.query
+
+  // If a language is specified, only allow our supported languages.
+  if (language && !supportedLanguages.includes(language as typeof supportedLanguages[number])) {
+    return reply.send([])
   }
 
   const url = new URL(`${responsiveVoiceUrl}/voices`)
-  if (request.query.language) url.searchParams.set('language', request.query.language)
+
+  if (language) {
+    url.searchParams.set('language', language)
+  }
 
   const providerResponse = await fetch(url, {
     headers: {
@@ -141,21 +157,40 @@ export async function listVoices(request: VoiceRequest, reply: FastifyReply) {
       'X-API-Secret': apiSecret,
     },
   })
+
   if (!providerResponse.ok) {
-    throw new AppError(502, 'TTS_PROVIDER_ERROR', 'ResponsiveVoice could not list voices')
+    throw new AppError(
+      502,
+      'TTS_PROVIDER_ERROR',
+      'ResponsiveVoice could not list voices',
+    )
   }
 
-  const body = await providerResponse.json() as { voices?: Array<Record<string, unknown>> }
+  const body = await providerResponse.json() as {
+    voices?: Array<Record<string, unknown>>
+  }
+
   const voices = Array.isArray(body.voices)
-    ? body.voices.map((voice) => ({
-      voiceName: String(voice.name ?? voice.voiceName ?? ''),
-      language: String(voice.lang ?? voice.language ?? ''),
-      gender: String(voice.gender ?? ''),
-    })).filter((voice) => voice.voiceName && voice.language && voice.gender)
+    ? body.voices
+        .map((voice) => ({
+          voiceName: String(voice.name ?? voice.voiceName ?? ''),
+          language: String(voice.lang ?? voice.language ?? ''),
+          gender: String(voice.gender ?? ''),
+        }))
+        .filter(
+          (voice) =>
+            voice.voiceName &&
+            voice.language &&
+            voice.gender &&
+            supportedLanguages.includes(
+              voice.language as typeof supportedLanguages[number],
+            ) &&
+            (!language || voice.language === language),
+        )
     : []
+
   return reply.send(voices)
 }
-
 // ── Admin: CRUD keys ──────────────────────────────────────────────────────────
 
 export async function listKeys(request: FastifyRequest, reply: FastifyReply) {
