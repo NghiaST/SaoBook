@@ -27,7 +27,6 @@ const KeySchema = {
     id:        { type: 'string' },
     userSettingsId: { type: 'string', nullable: true, description: 'Owner settings ID; null for an admin-managed global key' },
     label:     { type: 'string' },
-    key:       { type: 'string' },
     status:    { type: 'string', enum: ['personal', 'public', 'hidden'] },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
@@ -171,6 +170,30 @@ export async function ttsRoutes(app: FastifyInstance) {
       },
     },
   }, handler.updateKey)
+
+  app.get<IdParam>('/keys/:id/credentials', {
+    ...auth,
+    schema: {
+      ...tag, ...bearer,
+      summary: 'Get credentials for a personal RV API key',
+      description: 'Returns key and secret only to the owner of a personal key. Public or another user\'s keys cannot be revealed.',
+      params: idParam,
+      response: {
+        200: {
+          type: 'object',
+          required: ['id', 'key'],
+          properties: {
+            id: { type: 'string' },
+            key: { type: 'string' },
+            secret: { type: 'string', nullable: true },
+          },
+        },
+        401: { description: 'Authentication required', ...ErrorSchema },
+        403: { description: 'Public or another user\'s key', ...ErrorSchema },
+        404: { description: 'Key not found', ...ErrorSchema },
+      },
+    },
+  }, handler.getKeyCredentials)
 
   app.delete<IdParam>('/keys/:id', {
     ...auth,

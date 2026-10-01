@@ -199,7 +199,7 @@ export async function listKeys(request: FastifyRequest, reply: FastifyReply) {
   const keys = await prisma.rvApiKey.findMany({
     where: role === 'admin' ? undefined : { OR: [{ userSettingsId }, { userSettingsId: null }] },
     orderBy: { createdAt: 'asc' },
-    select: { id: true, userSettingsId: true, label: true, key: true, status: true, createdAt: true, updatedAt: true },
+    select: { id: true, userSettingsId: true, label: true, status: true, createdAt: true, updatedAt: true },
   })
   return reply.send(keys)
 }
@@ -220,7 +220,7 @@ export async function createKey(request: FastifyRequest, reply: FastifyReply) {
         userSettingsId,
         status: role === 'admin' ? 'public' : 'personal',
       },
-      select: { id: true, userSettingsId: true, label: true, key: true, status: true, createdAt: true, updatedAt: true },
+      select: { id: true, userSettingsId: true, label: true, status: true, createdAt: true, updatedAt: true },
     })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -249,7 +249,7 @@ export async function updateKey(
     updated = await prisma.rvApiKey.update({
       where: { id },
       data: body,
-      select: { id: true, userSettingsId: true, label: true, key: true, status: true, createdAt: true, updatedAt: true },
+      select: { id: true, userSettingsId: true, label: true, status: true, createdAt: true, updatedAt: true },
     })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -258,6 +258,26 @@ export async function updateKey(
     throw error
   }
   return reply.send(updated)
+}
+
+export async function getKeyCredentials(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply,
+) {
+  const { id: userId } = request.user as AuthUser
+  const userSettingsId = await getUserSettingsId(userId)
+  const { id } = request.params
+  const existing = await prisma.rvApiKey.findUnique({
+    where: { id },
+    select: { id: true, userSettingsId: true, status: true, key: true, secret: true },
+  })
+
+  if (!existing) throw new NotFoundError('RvApiKey')
+  if (existing.status === 'public' || existing.userSettingsId !== userSettingsId) {
+    throw new ForbiddenError('Public or another user\'s key credentials cannot be revealed')
+  }
+
+  return reply.send({ id: existing.id, key: existing.key, secret: existing.secret })
 }
 
 export async function deleteKey(

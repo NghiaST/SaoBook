@@ -169,6 +169,12 @@ export interface RvApiKey {
   updatedAt: string
 }
 
+export interface RvApiKeyCredentials {
+  id: string
+  key: string
+  secret: string | null
+}
+
 export interface ResponsiveVoice {
   voiceName: string
   language: string

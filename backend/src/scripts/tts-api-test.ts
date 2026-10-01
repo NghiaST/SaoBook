@@ -51,7 +51,9 @@ async function main() {
   const testId = randomUUID().slice(0, 8)
   const label = `TTS API Test ${testId}`
   const key = `tts-test-key-${testId}`
+  const secret = `tts-test-secret-${testId}`
   const userKey = `tts-user-key-${testId}`
+  const userSecret = `tts-user-secret-${testId}`
   let keyId: string | undefined
   let userKeyId: string | undefined
 
@@ -68,12 +70,12 @@ async function main() {
     expectStatus(unauthenticatedAudio, 401, 'unauthenticated audio')
 
     const created = await request('/tts/keys', {
-      method: 'POST', token: adminToken, body: { label, key },
+      method: 'POST', token: adminToken, body: { label, key, secret },
     })
     expectStatus(created, 201, 'create TTS key')
     keyId = created.body.id
     if (!keyId) throw new Error('create TTS key: id missing')
-    if (created.body.label !== label || created.body.key !== key || created.body.status !== 'public') {
+    if (created.body.label !== label || created.body.key !== undefined || created.body.secret !== undefined || created.body.status !== 'public') {
       throw new Error('create TTS key: response does not match the created key')
     }
 
@@ -90,15 +92,34 @@ async function main() {
     if (!Array.isArray(listed.body) || !listed.body.some((item: any) => item.id === keyId)) {
       throw new Error('list TTS keys: created key was not found')
     }
+    if (listed.body.some((item: any) => 'key' in item || 'secret' in item)) {
+      throw new Error('list TTS keys: credentials were returned')
+    }
+
+    const publicCredentials = await request(`/tts/keys/${keyId}/credentials`, {
+      method: 'GET', token: adminToken,
+    })
+    expectStatus(publicCredentials, 403, 'get public TTS key credentials')
 
     const createdUserKey = await request('/tts/keys', {
       method: 'POST', token: userToken,
-      body: { label: `${label} User`, key: userKey },
+      body: { label: `${label} User`, key: userKey, secret: userSecret },
     })
     expectStatus(createdUserKey, 201, 'create user TTS key')
     userKeyId = createdUserKey.body.id
     if (!userKeyId || createdUserKey.body.userSettingsId === null || createdUserKey.body.status !== 'personal') {
       throw new Error('create user TTS key: ownership was not returned')
+    }
+    if (createdUserKey.body.key !== undefined || createdUserKey.body.secret !== undefined) {
+      throw new Error('create user TTS key: credentials were returned')
+    }
+
+    const userCredentials = await request(`/tts/keys/${userKeyId}/credentials`, {
+      method: 'GET', token: userToken,
+    })
+    expectStatus(userCredentials, 200, 'get personal TTS key credentials')
+    if (userCredentials.body.key !== userKey || userCredentials.body.secret !== userSecret) {
+      throw new Error('get personal TTS key credentials: credentials did not match')
     }
 
     const unauthorizedSelection = await request('/users/me/settings', {
@@ -136,7 +157,7 @@ async function main() {
       method: 'PATCH', token: adminToken, body: { label: `${label} Updated`, status: 'hidden' },
     })
     expectStatus(updated, 200, 'update TTS key')
-    if (updated.body.label !== `${label} Updated` || updated.body.status !== 'hidden') {
+    if (updated.body.label !== `${label} Updated` || updated.body.status !== 'hidden' || updated.body.key !== undefined || updated.body.secret !== undefined) {
       throw new Error('update TTS key: values were not updated')
     }
 

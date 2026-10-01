@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store/auth.store'
 import type {
   User, Story, Chapter, Comment, MyComment, Review,
   BookshelfItem, ReadingHistoryItem, UserSettings, LoginResponse,
-  RvApiKey, ResponsiveVoice, AdminBooksResponse,
+  RvApiKey, RvApiKeyCredentials, ResponsiveVoice, AdminBooksResponse,
 } from '@/types'
 
 /** Only fire user-specific queries once we actually hold an access token. */
@@ -493,6 +493,15 @@ export const useRVKeys = () => {
     queryKey: ['rv-keys'],
     queryFn: () => api.get<RvApiKey[]>('/tts/keys').then((r) => r.data),
     enabled: isAuthenticated,
+  })
+}
+
+export const useRVKeyCredentials = (id: string | null) => {
+  const isAuthenticated = useIsAuthenticated()
+  return useQuery({
+    queryKey: ['rv-key-credentials', id],
+    queryFn: () => api.get<RvApiKeyCredentials>(`/tts/keys/${id}/credentials`).then((r) => r.data),
+    enabled: isAuthenticated && !!id,
   })
 }
 
