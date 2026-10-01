@@ -1,7 +1,7 @@
 // src/pages/SettingsPage.tsx
 import { useEffect, useState } from 'react'
-import { useSettingsStore, THEME_BG_OPTIONS, FONT_FAMILY_OPTIONS } from '@/store/settings.store'
-import { useMe, useRVKeys, useTTSVoices, useUpdateSettings } from '@/lib/queries'
+import { useSettingsStore, THEME_BG_OPTIONS, FONT_FAMILY_OPTIONS, ttsToUserSettings, userSettingsToPersistedSnapshot } from '@/store/settings.store'
+import { useRVKeys, useTTSVoices, useUpdateSettings } from '@/lib/queries'
 import { useAuthStore } from '@/store/auth.store'
 import { CheckCircle2, Moon, Sun, RotateCcw, Mic, Speaker } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -24,12 +24,6 @@ function useAvailableVoices(lang: string) {
   }, [lang])
 
   return voices
-}
-
-const defaultRvVoiceNames: Record<'vi' | 'en' | 'zh', Record<'male' | 'female', string>> = {
-  vi: { male: 'Vietnamese Male', female: 'Vietnamese Female' },
-  en: { male: 'US English Male', female: 'US English Female' },
-  zh: { male: 'Chinese Male', female: 'Chinese Female' },
 }
 
 // ── Color Preset Picker ───────────────────────────────────────────────────────
@@ -116,44 +110,27 @@ function SliderRow({
 // ── SettingsPage ──────────────────────────────────────────────────────────────
 
 export function SettingsPage() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user: currentUser } = useAuthStore()
   const settings = useSettingsStore()
   const updateSettings = useUpdateSettings()
-  const { data: me } = useMe(isAuthenticated)
   const { data: rvKeys = [] } = useRVKeys()
   const { data: rvVoices = [], isError: rvVoicesError } = useTTSVoices(
     settings.ttsLanguage,
     settings.ttsMode === 'responsivevoice',
   )
 
-  useEffect(() => {
-    const userSettings = me?.settings
-    const rvSettings = userSettings?.rvSettings
-    if (!userSettings || !rvSettings) return
-    settings.updateTTS({
-      ttsLanguage: rvSettings.language.startsWith('zh') ? 'zh' : rvSettings.language.startsWith('en') ? 'en' : 'vi',
-      ttsVoice: rvSettings.gender === 'male' || rvSettings.gender === 'm' ? 'male' : 'female',
-      ttsVoiceName: rvSettings.voiceName,
-      ttsPitch: rvSettings.pitch,
-      ttsSpeed: userSettings.ttsSpeed,
-      autoNextChapter: userSettings.autoNextChapter,
-      selectedRvApiKeyId: userSettings.selectedRvApiKeyId,
-    })
-  }, [me?.settings, settings.updateTTS])
   const voices = useAvailableVoices(settings.ttsLanguage)
+  const persistedSettings = ttsToUserSettings(settings)
+  const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(persistedSettings))
+  const isPersistedDirty = JSON.stringify(persistedSettings) !== savedSnapshot
+  const selectableRvKeys = rvKeys.filter(
+    (key) => key.status === 'public' || (key.status === 'personal' && key.userSettingsId === currentUser?.id),
+  )
 
   const save = () => {
     if (!isAuthenticated) return
-    updateSettings.mutate({
-      selectedRvApiKeyId: settings.selectedRvApiKeyId,
-      ttsSpeed:          settings.ttsSpeed,
-      autoNextChapter:   settings.autoNextChapter,
-      rvSettings: {
-        voiceName: settings.ttsVoiceName || defaultRvVoiceNames[settings.ttsLanguage][settings.ttsVoice],
-        language: settings.ttsLanguage === 'zh' ? 'zh-CN' : settings.ttsLanguage === 'en' ? 'en-US' : 'vi',
-        gender: settings.ttsVoice,
-        pitch: settings.ttsPitch,
-      },
+    updateSettings.mutate(persistedSettings, {
+      onSuccess: (savedSettings) => setSavedSnapshot(JSON.stringify(userSettingsToPersistedSnapshot(savedSettings))),
     })
   }
 
@@ -164,7 +141,9 @@ export function SettingsPage() {
         {/* Reset toàn bộ */}
         <button
           onClick={() => {
-            if (confirm('Đặt lại tất cả cài đặt về mặc định?')) settings.resetAll()
+            if (confirm('Đặt lại tất cả cài đặt về mặc định?')) {
+              settings.resetAll()
+            }
           }}
           className="flex items-center gap-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--accent)] border border-[var(--border)] hover:border-[var(--accent)] px-3 py-1.5 rounded-lg transition-all"
           title="Đặt lại toàn bộ cài đặt"
@@ -405,7 +384,7 @@ export function SettingsPage() {
                 className="input"
               >
                 <option value="">Tự động chọn key khả dụng</option>
-                {rvKeys.filter((key) => key.status !== 'hidden').map((key) => (
+                {selectableRvKeys.map((key) => (
                   <option key={key.id} value={key.id}>{key.label} ({key.status})</option>
                 ))}
               </select>
@@ -488,10 +467,10 @@ export function SettingsPage() {
         {isAuthenticated && (
           <button
             onClick={save}
-            disabled={updateSettings.isPending}
+            disabled={updateSettings.isPending || !isPersistedDirty}
             className="btn-primary"
           >
-            {updateSettings.isPending ? 'Đang lưu…' : '☁️ Lưu cài đặt lên đám mây'}
+            {updateSettings.isPending ? 'Đang lưu…' : isPersistedDirty ? '☁️ Lưu cài đặt lên đám mây' : 'Đã đồng bộ'}
           </button>
         )}
       </div>

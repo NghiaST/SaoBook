@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import api from './api'
 import { useAuthStore } from '@/store/auth.store'
+import { useSettingsStore } from '@/store/settings.store'
 import type {
   User, Story, Chapter, Comment, MyComment, Review,
   BookshelfItem, ReadingHistoryItem, UserSettings, LoginResponse,
@@ -115,7 +116,12 @@ export const useUpdateSettings = () => {
     // rvSettings: voiceName, language, gender, pitch; selectedRvApiKeyId selects the provider key.
     mutationFn: (data: Partial<UserSettings> & { rvSettings?: UserSettings['rvSettings'] }) =>
       api.put<UserSettings>('/users/me/settings', data).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['me'] }),
+    onSuccess: (savedSettings) => {
+      useSettingsStore.getState().hydrateUserSettings(savedSettings)
+      const user = useAuthStore.getState().user
+      if (user) useAuthStore.getState().setUser({ ...user, settings: savedSettings })
+      qc.setQueryData<User | undefined>(['me'], (current) => current ? { ...current, settings: savedSettings } : current)
+    },
   })
 }
 

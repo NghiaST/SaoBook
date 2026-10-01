@@ -1,6 +1,6 @@
 // src/store/settings.store.ts
 import { create } from 'zustand'
-import type { TTSMode } from '@/types'
+import type { TTSMode, UserSettings } from '@/types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -86,6 +86,57 @@ export interface TTSSettings {
   selectedRvApiKeyId: string | null
 }
 
+export const DEFAULT_RV_VOICE_NAMES: Record<TTSLanguage, Record<TTSVoice, string>> = {
+  vi: { male: 'Vietnamese Male', female: 'Vietnamese Female' },
+  en: { male: 'US English Male', female: 'US English Female' },
+  zh: { male: 'Chinese Male', female: 'Chinese Female' },
+}
+
+export function userSettingsToTTS(userSettings: UserSettings): Partial<TTSSettings> {
+  const language = userSettings.rvSettings.language.startsWith('zh')
+    ? 'zh'
+    : userSettings.rvSettings.language.startsWith('en') ? 'en' : 'vi'
+  const voice = userSettings.rvSettings.gender === 'male' || userSettings.rvSettings.gender === 'm'
+    ? 'male'
+    : 'female'
+
+  return {
+    ttsLanguage: language,
+    ttsVoice: voice,
+    ttsVoiceName: userSettings.rvSettings.voiceName,
+    ttsPitch: userSettings.rvSettings.pitch,
+    ttsSpeed: userSettings.ttsSpeed,
+    autoNextChapter: userSettings.autoNextChapter,
+    selectedRvApiKeyId: userSettings.selectedRvApiKeyId,
+  }
+}
+
+export function ttsToUserSettings(settings: Pick<
+  TTSSettings,
+  'ttsLanguage' | 'ttsVoice' | 'ttsVoiceName' | 'ttsPitch' | 'ttsSpeed' | 'autoNextChapter' | 'selectedRvApiKeyId'
+>): Pick<UserSettings, 'ttsSpeed' | 'autoNextChapter' | 'selectedRvApiKeyId' | 'rvSettings'> {
+  return {
+    ttsSpeed: settings.ttsSpeed,
+    autoNextChapter: settings.autoNextChapter,
+    selectedRvApiKeyId: settings.selectedRvApiKeyId,
+    rvSettings: {
+      voiceName: settings.ttsVoiceName || DEFAULT_RV_VOICE_NAMES[settings.ttsLanguage][settings.ttsVoice],
+      language: settings.ttsLanguage === 'zh' ? 'zh-CN' : settings.ttsLanguage === 'en' ? 'en-US' : 'vi',
+      gender: settings.ttsVoice,
+      pitch: settings.ttsPitch,
+    },
+  }
+}
+
+export function userSettingsToPersistedSnapshot(userSettings: UserSettings) {
+  return {
+    ttsSpeed: userSettings.ttsSpeed,
+    autoNextChapter: userSettings.autoNextChapter,
+    selectedRvApiKeyId: userSettings.selectedRvApiKeyId,
+    rvSettings: userSettings.rvSettings,
+  }
+}
+
 interface SettingsState extends UISettings, TTSSettings {
   /** Saved colors for each theme - to restore when toggling */
   savedColors: Record<UITheme, { bgColor: string; textColor: string }>
@@ -93,6 +144,7 @@ interface SettingsState extends UISettings, TTSSettings {
   applyToDOM: () => void
   updateUI: (patch: Partial<UISettings>) => void
   updateTTS: (patch: Partial<TTSSettings>) => void
+  hydrateUserSettings: (userSettings: UserSettings) => void
   /** Toggle light/dark theme - restore saved colors of the target theme */
   toggleTheme: () => void
   /** Reset all settings to default */
@@ -162,6 +214,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       },
 
       updateTTS: (patch) => set(patch),
+
+      hydrateUserSettings: (userSettings) => set(userSettingsToTTS(userSettings)),
 
       toggleTheme: () => {
         const { theme, savedColors } = get()
