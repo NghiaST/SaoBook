@@ -483,6 +483,15 @@ export const useRVKeys = () => {
   })
 }
 
+export const useActiveRVKeys = () => {
+  const isAuthenticated = useIsAuthenticated()
+  return useQuery({
+    queryKey: ['active-rv-keys'],
+    queryFn: () => api.get<{ keys: string[] }>('/tts/keys/active').then((r) => r.data.keys),
+    enabled: isAuthenticated,
+  })
+}
+
 export const useTTSVoices = (language?: string, enabled = true) => {
   const isAuthenticated = useIsAuthenticated()
   return useQuery({
