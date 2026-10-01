@@ -18,11 +18,29 @@ type VoiceRequest = FastifyRequest<{ Querystring: { language?: string } }>
 
 const responsiveVoiceUrl = 'https://texttospeech.responsivevoice.org/v2'
 const defaultRvSettings = {
-  voiceName: 'Vietnamese Female',
+  voiceName: 'VIETNAMESE_FEMALE',
   language: 'vi',
-  gender: 'female',
+  gender: 'f',
   pitch: 1,
+} as const
+
+const normalizeProviderVoice = (voiceName?: string) => {
+  switch (voiceName) {
+    case 'VIETNAMESE_MALE':
+      return 'Vietnamese Male'
+    case 'US_ENGLISH_FEMALE':
+      return 'US English Female'
+    case 'US_ENGLISH_MALE':
+      return 'US English Male'
+    case 'VIETNAMESE_FEMALE':
+    default:
+      return 'Vietnamese Female'
+  }
 }
+
+const normalizeProviderLanguage = (language?: string) => (language === 'en' ? 'en-US' : 'vi-VN')
+
+const normalizeProviderGender = (gender?: string) => (gender === 'm' ? 'male' : 'female')
 
 async function getUserSettingsId(userId: string) {
   const settings = await prisma.userSettings.upsert({
@@ -92,8 +110,8 @@ export async function streamAudio(request: AudioRequest, reply: FastifyReply) {
     },
     body: JSON.stringify({
       text,
-      lang: settings.rvSettings.language,
-      voice: settings.rvSettings.voiceName,
+      lang: normalizeProviderLanguage(settings.rvSettings.language),
+      voice: normalizeProviderVoice(settings.rvSettings.voiceName),
       pitch: settings.rvSettings.pitch,
     }),
   })

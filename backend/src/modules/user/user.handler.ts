@@ -9,11 +9,53 @@ import { uploadAvatar } from '../../storage/r2'
 type AuthUser = { id: string; role: string }
 
 const defaultRvSettings = {
-  voiceName: 'Vietnamese Female',
+  voiceName: 'VIETNAMESE_FEMALE',
   language: 'vi',
-  gender: 'female',
+  gender: 'f',
   pitch: 1,
+} as const
+
+const normalizeGender = (gender?: string) => {
+  const value = gender?.toLowerCase()
+  return value === 'male' || value === 'm' ? 'm' : 'f'
 }
+
+const normalizeLanguage = (language?: string) => {
+  const value = language?.toLowerCase()
+  return value === 'en' || value === 'en-us' ? 'en' : 'vi'
+}
+
+const normalizeVoiceName = (voiceName?: string) => {
+  const value = voiceName?.trim() ?? 'Vietnamese Female'
+  switch (value) {
+    case 'Vietnamese Male':
+    case 'VIETNAMESE_MALE':
+      return 'VIETNAMESE_MALE'
+    case 'US English Female':
+    case 'US_ENGLISH_FEMALE':
+      return 'US_ENGLISH_FEMALE'
+    case 'US English Male':
+    case 'US_ENGLISH_MALE':
+      return 'US_ENGLISH_MALE'
+    case 'Vietnamese Female':
+    case 'VIETNAMESE_FEMALE':
+    default:
+      return 'VIETNAMESE_FEMALE'
+  }
+}
+
+const serializeRvSettings = (rvSettings?: { voiceName?: string; language?: string; gender?: string; pitch?: number }) => ({
+  voiceName: rvSettings?.voiceName === 'VIETNAMESE_MALE'
+    ? 'Vietnamese Male'
+    : rvSettings?.voiceName === 'US_ENGLISH_FEMALE'
+      ? 'US English Female'
+      : rvSettings?.voiceName === 'US_ENGLISH_MALE'
+        ? 'US English Male'
+        : 'Vietnamese Female',
+  language: rvSettings?.language === 'en' ? 'en' : 'vi',
+  gender: rvSettings?.gender === 'm' ? 'male' : 'female',
+  pitch: rvSettings?.pitch ?? 1,
+})
 
 const ALLOWED_AVATAR_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5 MB
@@ -160,7 +202,17 @@ export async function updateSettings(request: FastifyRequest, reply: FastifyRepl
     ttsVoice: _legacyVoice,
     ...settingsBody
   } = body
-  const rvSettingsData = rvSettings as Prisma.RvSettingsCreateWithoutUserSettingsInput | undefined
+
+  const normalizedRvSettings = rvSettings && typeof rvSettings === 'object'
+    ? {
+      ...(rvSettings as Record<string, unknown>),
+      voiceName: normalizeVoiceName(String((rvSettings as Record<string, unknown>).voiceName ?? 'Vietnamese Female')),
+      language: normalizeLanguage(String((rvSettings as Record<string, unknown>).language ?? 'vi')),
+      gender: normalizeGender(String((rvSettings as Record<string, unknown>).gender ?? 'female')),
+      pitch: Number((rvSettings as Record<string, unknown>).pitch ?? 1),
+    }
+    : undefined
+  const rvSettingsData = normalizedRvSettings as Prisma.RvSettingsCreateWithoutUserSettingsInput | undefined
 
   if (selectedRvApiKeyId !== undefined && selectedRvApiKeyId !== null) {
     const userSettingsId = await prisma.userSettings.upsert({
@@ -202,7 +254,12 @@ export async function updateSettings(request: FastifyRequest, reply: FastifyRepl
     include: { rvSettings: true },
   })
 
-  return reply.send(settings)
+  const response = {
+    ...settings,
+    rvSettings: settings.rvSettings ? serializeRvSettings(settings.rvSettings) : null,
+  }
+
+  return reply.send(response)
 }
 
 export async function getMyComments(request: FastifyRequest, reply: FastifyReply) {

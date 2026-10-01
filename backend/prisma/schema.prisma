@@ -17,16 +17,27 @@ enum Role {
   admin
 }
 
-enum TTSLanguage {
-  vi
-  en
-  zh
-}
-
 enum RvApiKeyStatus {
   personal
   public
   hidden
+}
+
+enum RvVoiceName {
+  VIETNAMESE_FEMALE @map("Vietnamese Female")
+  VIETNAMESE_MALE   @map("Vietnamese Male")
+  US_ENGLISH_FEMALE @map("US English Female")
+  US_ENGLISH_MALE   @map("US English Male")
+}
+
+enum RvLanguage {
+  vi @map("vi-VN")
+  en @map("en-US")
+}
+
+enum RvGender {
+  f
+  m
 }
 
 // ─── User & Settings ──────────────────────────────────────────────────────────
@@ -73,9 +84,9 @@ model UserSettings {
 model RvSettings {
   userSettingsId String        @id
   userSettings   UserSettings  @relation(fields: [userSettingsId], references: [userId], onDelete: Cascade)
-  voiceName      String
-  language       String
-  gender         String
+  voiceName      RvVoiceName   @default(VIETNAMESE_FEMALE)
+  language       RvLanguage    @default(vi)
+  gender         RvGender      @default(f)
   pitch          Float         @default(1.0)
 
   @@map("rv_settings")

@@ -69,9 +69,9 @@ export async function register(
         create: {
           rvSettings: {
             create: {
-              voiceName: 'Vietnamese Female',
+              voiceName: 'VIETNAMESE_FEMALE',
               language: 'vi',
-              gender: 'female',
+              gender: 'f',
               pitch: 1,
             },
           },

@@ -63,7 +63,8 @@ function expectToken(value: string | undefined, label: string) {
 }
 
 async function main() {
-  const health = await request('/../health', { method: 'GET' })
+  const healthPath = '/../health' // resolve from the /api base URL to the root health route
+  const health = await request(healthPath, { method: 'GET' })
   expectStatus(health, 200, 'health')
 
   const registerBody = { username, email, name: 'API Test', password }

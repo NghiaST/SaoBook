@@ -187,7 +187,8 @@ Key
 
 * PostgreSQL is managed through Prisma migrations in `backend/prisma/migrations`.
 * `UserSettings.selectedRvApiKeyId` persists the user's selected ResponsiveVoice key and references `RvApiKey.id`.
-* `UserSettings.rvSettings` stores the selected ResponsiveVoice voice name, language, gender, and pitch.
+* `UserSettings.rvSettings` stores the selected ResponsiveVoice voice name, language, gender, and pitch in Prisma enum-safe values such as `VIETNAMESE_FEMALE`, `vi`, `f`, and `1.0`.
+* The public API accepts user-friendly values like `voiceName: "Vietnamese Female"`, `language: "vi"`, and `gender: "female"`, then normalizes them before persisting to Prisma.
 * A selected key must be public or personally owned by the authenticated user. If no key is selected, audio uses the oldest eligible key.
 * ResponsiveVoice v2 credentials are server-side environment variables: `RESPONSIVEVOICE_API_KEY` and `RESPONSIVEVOICE_API_SECRET`.
 * Per-key v2 secrets may also be stored with a key. Secrets are never returned by key or user APIs.
