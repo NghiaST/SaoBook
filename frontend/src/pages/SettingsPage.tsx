@@ -1,10 +1,27 @@
 // src/pages/SettingsPage.tsx
 import { useEffect, useState } from 'react'
-import { useSettingsStore, THEME_BG_OPTIONS, FONT_FAMILY_OPTIONS, ttsToUserSettings, userSettingsToPersistedSnapshot } from '@/store/settings.store'
-import { useCreateRVKey, useDeleteRVKey, useRVKeys, useTTSVoices, useUpdateSettings } from '@/lib/queries'
+import { useSettingsStore, THEME_BG_OPTIONS, FONT_FAMILY_OPTIONS } from '@/store/settings.store'
+import { useTTSStore } from '@/store/tts.store'
+import { useSettingsSync } from '@/hooks/useSettingsSync'
+import { useCreateRVKey, useDeleteRVKey, useRVKeys, useTTSVoices } from '@/lib/queries'
 import { useAuthStore } from '@/store/auth.store'
 import { CheckCircle2, Moon, Sun, RotateCcw, Mic, Speaker, Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+type Option = { value: string; label: string }
+
+/**
+ * A <select> shows its FIRST option ("Tự động chọn") whenever its value is not in the
+ * option list - which is exactly what happens while the voice / key list is still
+ * loading, or when the saved value is not in the list. Keep the saved value selectable
+ * so the UI never claims "Tự động" when something else is actually stored.
+ */
+function withSavedOption(options: Option[], saved: string | null | undefined, label: string): Option[] {
+  if (!saved || options.some((o) => o.value === saved)) return options
+  return [{ value: saved, label }, ...options]
+}
 
 // ── Voices từ SpeechSynthesis ─────────────────────────────────────────────────
 
@@ -12,15 +29,17 @@ function useAvailableVoices(lang: string) {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
 
   useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+    const synth = window.speechSynthesis
     const load = () => {
       const langCode = lang === 'vi' ? 'vi' : 'en'
-      const all = window.speechSynthesis.getVoices()
+      const all = synth.getVoices()
       const filtered = all.filter((v) => v.lang.startsWith(langCode))
       setVoices(filtered.length > 0 ? filtered : all.slice(0, 5))
     }
     load()
-    window.speechSynthesis.onvoiceschanged = load
-    return () => { window.speechSynthesis.onvoiceschanged = null }
+    synth.addEventListener('voiceschanged', load)
+    return () => synth.removeEventListener('voiceschanged', load)
   }, [lang])
 
   return voices
@@ -112,19 +131,16 @@ function SliderRow({
 export function SettingsPage() {
   const { isAuthenticated, user: currentUser } = useAuthStore()
   const settings = useSettingsStore()
-  const updateSettings = useUpdateSettings()
-  const { data: rvKeys = [] } = useRVKeys()
+  const { isDirty, isSaving, saveError, save } = useSettingsSync()
+  const { data: rvKeys = [], isLoading: rvKeysLoading } = useRVKeys()
   const createRvKey = useCreateRVKey()
   const deleteRvKey = useDeleteRVKey()
-  const { data: rvVoices = [], isError: rvVoicesError } = useTTSVoices(
+  const { data: rvVoices = [], isError: rvVoicesError, isLoading: rvVoicesLoading } = useTTSVoices(
     settings.ttsLanguage === 'en' ? 'en-US' : 'vi-VN',
     settings.ttsMode === 'responsivevoice',
   )
 
   const voices = useAvailableVoices(settings.ttsLanguage)
-  const persistedSettings = ttsToUserSettings(settings)
-  const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(persistedSettings))
-  const isPersistedDirty = JSON.stringify(persistedSettings) !== savedSnapshot
   const selectableRvKeys = rvKeys.filter(
     (key) => key.status === 'public' || (key.status === 'personal' && key.userSettingsId === currentUser?.id),
   )
@@ -132,6 +148,23 @@ export function SettingsPage() {
   const [newKeyLabel, setNewKeyLabel] = useState('')
   const [newKeyValue, setNewKeyValue] = useState('')
   const [newKeySecret, setNewKeySecret] = useState('')
+
+  // Select options. The saved value is always selectable (see withSavedOption).
+  const ssVoiceOptions = withSavedOption(
+    voices.map((v) => ({ value: v.name, label: `${v.name} (${v.lang})${v.localService ? '' : ' ☁️'}` })),
+    settings.ttsVoiceName,
+    `${settings.ttsVoiceName} (đã lưu)`,
+  )
+  const rvVoiceOptions = withSavedOption(
+    rvVoices.map((v) => ({ value: v.voiceName, label: `${v.voiceName} (${v.language}, ${v.gender})` })),
+    settings.rvVoiceName,
+    rvVoicesLoading ? 'Đang tải giọng…' : `${settings.rvVoiceName} (đã lưu)`,
+  )
+  const rvKeyOptions = withSavedOption(
+    selectableRvKeys.map((key) => ({ value: key.id, label: `${key.label} (${key.status})` })),
+    settings.selectedRvApiKeyId,
+    rvKeysLoading ? 'Đang tải key…' : 'Key đã lưu (không còn khả dụng)',
+  )
 
   const addPersonalKey = async () => {
     if (!newKeyLabel.trim() || !newKeyValue.trim()) return
@@ -149,13 +182,6 @@ export function SettingsPage() {
   const removePersonalKey = (id: string) => {
     if (settings.selectedRvApiKeyId === id) settings.updateTTS({ selectedRvApiKeyId: null })
     deleteRvKey.mutate(id)
-  }
-
-  const save = () => {
-    if (!isAuthenticated) return
-    updateSettings.mutate(persistedSettings, {
-      onSuccess: (savedSettings) => setSavedSnapshot(JSON.stringify(userSettingsToPersistedSnapshot(savedSettings))),
-    })
   }
 
   return (
@@ -272,6 +298,9 @@ export function SettingsPage() {
           onChange={(v) => settings.updateUI({ readerMaxWidth: v })}
           leftLabel="500px (hẹp)" rightLabel="1600px (rộng)"
         />
+        <p className="text-xs text-[var(--text-subtle)] -mt-3">
+          Mẹo: khi đang đọc, bấm nút tuỳ chỉnh nhanh (⚙) trên thanh công cụ để chỉnh chiều rộng và xem kết quả ngay.
+        </p>
 
         {/* Preview */}
         <div>
@@ -328,7 +357,7 @@ export function SettingsPage() {
           <select
             value={settings.ttsLanguage}
             onChange={(e) => {
-              settings.updateTTS({ ttsLanguage: e.target.value as any, ttsVoiceName: '' })
+              settings.updateTTS({ ttsLanguage: e.target.value as any, ttsVoiceName: '', rvVoiceName: '' })
             }}
             className="input"
           >
@@ -337,7 +366,7 @@ export function SettingsPage() {
           </select>
         </div>
 
-        {/* Voice picker - only show it when using SpeechSynthesis */}
+        {/* Voice picker - SpeechSynthesis */}
         {settings.ttsMode === 'speechsynthesis' && (
           <div>
             <label className="label">
@@ -346,20 +375,17 @@ export function SettingsPage() {
                 ({voices.length} giọng khả dụng)
               </span>
             </label>
-            {voices.length > 0 ? (
-              <select
-                value={settings.ttsVoiceName || ''}
-                onChange={(e) => settings.updateTTS({ ttsVoiceName: e.target.value })}
-                className="input"
-              >
-                <option value="">-- Tự động chọn --</option>
-                {voices.map((v) => (
-                  <option key={v.name} value={v.name}>
-                    {v.name} ({v.lang}){v.localService ? '' : ' ☁️'}
-                  </option>
-                ))}
-              </select>
-            ) : (
+            <select
+              value={settings.ttsVoiceName || ''}
+              onChange={(e) => settings.updateTTS({ ttsVoiceName: e.target.value })}
+              className="input"
+            >
+              <option value="">-- Tự động chọn --</option>
+              {ssVoiceOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            {voices.length === 0 && (
               <p className="text-xs text-[var(--text-subtle)] mt-1">
                 Trình duyệt chưa tải xong danh sách giọng. Thử tải lại trang.
               </p>
@@ -367,6 +393,7 @@ export function SettingsPage() {
           </div>
         )}
 
+        {/* Voice picker - ResponsiveVoice */}
         {settings.ttsMode === 'responsivevoice' && (
           <div>
             <label className="label">
@@ -375,28 +402,29 @@ export function SettingsPage() {
                 ({rvVoices.length} giọng khả dụng)
               </span>
             </label>
-            {rvVoices.length > 0 ? (
-              <select
-                value={settings.ttsVoiceName || ''}
-                onChange={(e) => settings.updateTTS({ ttsVoiceName: e.target.value })}
-                className="input"
-              >
-                <option value="">-- Tự động chọn --</option>
-                {rvVoices.map((voice) => (
-                  <option key={`${voice.voiceName}-${voice.language}`} value={voice.voiceName}>
-                    {voice.voiceName} ({voice.language}, {voice.gender})
-                  </option>
-                ))}
-              </select>
-            ) : (
+            <select
+              value={settings.rvVoiceName || ''}
+              onChange={(e) => settings.updateTTS({ rvVoiceName: e.target.value })}
+              className="input"
+            >
+              <option value="">-- Tự động chọn --</option>
+              {rvVoiceOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            {rvVoices.length === 0 && (
               <p className="text-xs text-[var(--text-subtle)] mt-1">
-                {rvVoicesError ? 'Không thể tải danh sách giọng.' : 'Chưa có giọng ResponsiveVoice khả dụng.'}
+                {rvVoicesLoading
+                  ? 'Đang tải danh sách giọng…'
+                  : rvVoicesError
+                    ? 'Không thể tải danh sách giọng.'
+                    : 'Chưa có giọng ResponsiveVoice khả dụng.'}
               </p>
             )}
           </div>
         )}
 
-        {/* ResponsiveVoice - note */}
+        {/* ResponsiveVoice - API keys */}
         {settings.ttsMode === 'responsivevoice' && (
           <div className="space-y-3">
             <div>
@@ -407,8 +435,8 @@ export function SettingsPage() {
                 className="input"
               >
                 <option value="">Tự động chọn key khả dụng</option>
-                {selectableRvKeys.map((key) => (
-                  <option key={key.id} value={key.id}>{key.label} ({key.status})</option>
+                {rvKeyOptions.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
             </div>
@@ -460,10 +488,13 @@ export function SettingsPage() {
 
         {/* Speed */}
         <SliderRow
-          label="Tốc độ" value={settings.ttsSpeed} min={0.5} max={5} step={0.05}
+          label="Tốc độ" value={Math.min(settings.ttsSpeed, 4)} min={0.5} max={4} step={0.05}
           display={`${settings.ttsSpeed.toFixed(2)}x`}
-          onChange={(v) => settings.updateTTS({ ttsSpeed: v })}
-          leftLabel="0.5x (chậm)" rightLabel="5.0x (nhanh)"
+          onChange={(v) => {
+            settings.updateTTS({ ttsSpeed: v })
+            useTTSStore.getState().setPlaybackSpeed(v) // live, if something is playing
+          }}
+          leftLabel="0.5x (chậm)" rightLabel="4.0x (nhanh)"
         />
 
         {/* Pitch */}
@@ -495,45 +526,30 @@ export function SettingsPage() {
           </label>
         </div>
 
-        {/* Sleep timer */}
-        <div>
-          <label className="label">Hẹn giờ tắt (phút, 0 = không hẹn)</label>
-          <div className="flex items-center gap-3">
-            <input
-              type="number"
-              min="0"
-              max="180"
-              value={settings.sleepTimerMinutes}
-              onChange={(e) => settings.updateTTS({ sleepTimerMinutes: parseInt(e.target.value) || 0 })}
-              className="input w-24"
-            />
-            <div className="flex gap-1">
-              {[0, 15, 30, 60, 90].map((m) => (
-                <button
-                  key={m}
-                  onClick={() => settings.updateTTS({ sleepTimerMinutes: m })}
-                  className={cn(
-                    'text-xs px-2 py-1 rounded border transition-all',
-                    settings.sleepTimerMinutes === m
-                      ? 'border-accent text-accent bg-[var(--accent-bg)]'
-                      : 'border-[var(--border)] text-[var(--text-subtle)] hover:border-[var(--text-muted)]',
-                  )}
-                >
-                  {m === 0 ? 'Tắt' : `${m}'`}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        {/* Sleep timer moved to the reader page */}
+        <p className="text-xs text-[var(--text-subtle)]">
+          Hẹn giờ tắt được chỉnh ngay trong trang đọc (nút tuỳ chỉnh nhanh ⚙ trên thanh công cụ) và bắt đầu đếm ngược ngay lập tức.
+        </p>
 
-        {isAuthenticated && (
-          <button
-            onClick={save}
-            disabled={updateSettings.isPending || !isPersistedDirty}
-            className="btn-primary"
-          >
-            {updateSettings.isPending ? 'Đang lưu…' : isPersistedDirty ? '☁️ Lưu cài đặt lên đám mây' : 'Đã đồng bộ'}
-          </button>
+        {isAuthenticated ? (
+          <div className="space-y-2">
+            <button
+              onClick={save}
+              disabled={isSaving || !isDirty}
+              className="btn-primary"
+            >
+              {isSaving ? 'Đang lưu…' : isDirty ? '☁️ Lưu ngay' : '✓ Đã đồng bộ'}
+            </button>
+            <p className="text-xs text-[var(--text-subtle)]">
+              Giọng, API key, tốc độ… được tự động lưu lên đám mây ngay sau khi bạn thay đổi, vì giọng ResponsiveVoice
+              được tạo từ cài đặt đã lưu trên máy chủ.
+            </p>
+            {saveError && (
+              <p role="alert" className="text-xs text-red-500">{saveError}</p>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-[var(--text-subtle)]">Đăng nhập để lưu cài đặt giọng đọc lên đám mây.</p>
         )}
       </div>
     </div>

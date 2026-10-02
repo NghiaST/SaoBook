@@ -15,10 +15,9 @@ export type PlaybackSettings = {
   speed: number
   pitch: number
   volume: number
-  sleepTimerMinutes: number
   startParagraphIndex?: number
-  /** Auto-next chapter: keep the sleep timer that is already running instead of restarting it. */
-  keepSleepTimer?: boolean
+  /** Playback was started automatically (auto-next): an expired sleep timer must stop it. */
+  autoContinue?: boolean
   onEnd?: () => void
   onParagraphChange?: (index: number) => void
 }
@@ -37,6 +36,10 @@ interface TTSState {
   sleepTimer: ReturnType<typeof setTimeout> | null
   sleepTimerRemaining: number
   sleepTimerInterval: ReturnType<typeof setInterval> | null
+  /** Minutes the running timer was set to (0 = no timer). */
+  sleepTimerMinutes: number
+  /** Increments every time the sleep timer fires (lets the UI cancel pending auto-next). */
+  sleepTimerFiredCount: number
   rvAudioStatuses: Record<number, RvAudioStatus>
   rvAudioTotal: number
 
@@ -48,6 +51,14 @@ interface TTSState {
   /** Restart from the paragraph where playback failed (failed audio is requested again). */
   retry: (settings: PlaybackSettings) => void
   clearError: () => void
+  /** Start (minutes > 0) or cancel (0) the sleep timer. Counts down immediately, playing or not. */
+  setSleepTimer: (minutes: number) => void
+  /**
+   * Change the speed of the CURRENT playback on the fly: no new request, no re-download.
+   * Backend audio: applied instantly to the playing <audio>. Browser voices cannot change
+   * rate mid-utterance, so only the sentence being read is restarted at the new speed.
+   */
+  setPlaybackSpeed: (speed: number) => void
 }
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
@@ -66,6 +77,8 @@ const SS_MAX_RETRIES = 2
 const SS_VOICES_WAIT_MS = 1_500
 
 // Shared
+const MIN_SPEED = 0.5
+const MAX_SPEED = 4                    // browsers may mute <audio> above ~4x
 const MAX_CONSECUTIVE_FAILURES = 3     // this many paragraphs/chunks in a row -> give up with an error
 
 const MSG_RV_FAILED = 'Không tải được audio từ máy chủ. Hãy kiểm tra kết nối rồi thử lại.'
@@ -241,6 +254,9 @@ export const useTTSStore = create<TTSState>()((set, get) => {
   let current: PlayCtx | null = null
   let rv: RvSession | null = null
   let consecutiveFailures = 0
+  let sleepDeadline: number | null = null
+  let ssRestart: (() => void) | null = null          // re-speak the current chunk (speed change)
+  let speedTimer: ReturnType<typeof setTimeout> | null = null
 
   // ── Teardown helpers ───────────────────────────────────────────────────────
 
@@ -279,6 +295,11 @@ export const useTTSStore = create<TTSState>()((set, get) => {
   function teardown() {
     playbackToken++
     current = null
+    ssRestart = null
+    if (speedTimer) {
+      clearTimeout(speedTimer)
+      speedTimer = null
+    }
     cancelSpeech()
     cancelRvSession()
     releaseAudio()
@@ -292,39 +313,67 @@ export const useTTSStore = create<TTSState>()((set, get) => {
   }
 
   // ── Sleep timer ────────────────────────────────────────────────────────────
+  // One-shot, wall-clock countdown. It is NOT cleared by stop(); it ends when it
+  // fires or when the user turns it off. A deadline is used (not a decrement) and is
+  // also checked at paragraph boundaries, because background tabs throttle timers.
+
+  function sleepIsExpired() {
+    return sleepDeadline !== null && Date.now() >= sleepDeadline
+  }
 
   function clearSleepTimer() {
     const { sleepTimer, sleepTimerInterval } = get()
     if (sleepTimer) clearTimeout(sleepTimer)
     if (sleepTimerInterval) clearInterval(sleepTimerInterval)
-    set({ sleepTimer: null, sleepTimerInterval: null, sleepTimerRemaining: 0 })
+    sleepDeadline = null
+    set({ sleepTimer: null, sleepTimerInterval: null, sleepTimerRemaining: 0, sleepTimerMinutes: 0 })
+  }
+
+  function expireSleepTimer() {
+    teardown()
+    clearSleepTimer()
+    set({
+      status: 'idle',
+      utterance: null,
+      audio: null,
+      sleepTimerFiredCount: get().sleepTimerFiredCount + 1,
+    })
   }
 
   function startSleepTimer(minutes: number) {
     clearSleepTimer()
-    const deadline = Date.now() + minutes * 60_000
-    const timer = setTimeout(() => {
-      teardown()
-      clearSleepTimer()
-      set({ status: 'idle', utterance: null, audio: null })
-    }, minutes * 60_000)
-    // Based on a deadline (not a decrement) so throttled background tabs stay accurate
+    const ms = minutes * 60_000
+    const deadline = Date.now() + ms
+    sleepDeadline = deadline
+    const timer = setTimeout(expireSleepTimer, ms)
     const interval = setInterval(() => {
-      set({ sleepTimerRemaining: Math.max(0, Math.round((deadline - Date.now()) / 1000)) })
+      if (sleepIsExpired()) {
+        expireSleepTimer() // safety net if the timeout was throttled
+        return
+      }
+      set({ sleepTimerRemaining: Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) })
     }, 1000)
-    set({ sleepTimer: timer, sleepTimerInterval: interval, sleepTimerRemaining: minutes * 60 })
+    set({
+      sleepTimer: timer,
+      sleepTimerInterval: interval,
+      sleepTimerRemaining: Math.round(ms / 1000),
+      sleepTimerMinutes: minutes,
+    })
   }
 
   // ── End states ─────────────────────────────────────────────────────────────
 
   function finishPlayback(ctx: PlayCtx) {
     if (ctx.token !== playbackToken) return
+    if (sleepIsExpired()) {
+      expireSleepTimer()
+      return
+    }
     playbackToken++
     current = null
     cancelRvSession()
     set({ status: 'idle', utterance: null, audio: null, currentParagraphIndex: 0 })
-    if (ctx.settings.onEnd) ctx.settings.onEnd()
-    else clearSleepTimer()
+    ctx.settings.onEnd?.()
   }
 
   /** Unrecoverable problem: stop everything, keep position so the user can retry. */
@@ -363,6 +412,10 @@ export const useTTSStore = create<TTSState>()((set, get) => {
 
   function ssReadFrom(ctx: PlayCtx, index: number) {
     if (ctx.token !== playbackToken) return
+    if (sleepIsExpired()) {
+      expireSleepTimer()
+      return
+    }
     if (index >= ctx.paragraphs.length) {
       finishPlayback(ctx)
       return
@@ -401,6 +454,15 @@ export const useTTSStore = create<TTSState>()((set, get) => {
       utterance.onstart = null
       utterance.onend = null
       utterance.onerror = null
+      if (ssRestart === restart) ssRestart = null
+    }
+
+    // Speed changed mid-sentence: re-speak THIS chunk with the new rate (ctx.settings is read fresh)
+    const restart = () => {
+      if (done || ctx.token !== playbackToken) return
+      stopWatching()
+      cancelSpeech()
+      ssSpeakChunk(ctx, index, chunks, chunkIdx, 0)
     }
 
     const next = () => {
@@ -463,6 +525,7 @@ export const useTTSStore = create<TTSState>()((set, get) => {
     }, 1000)
 
     set({ utterance })
+    ssRestart = restart
     try {
       window.speechSynthesis.speak(utterance)
       if (get().status === 'paused') window.speechSynthesis.pause()
@@ -597,6 +660,10 @@ export const useTTSStore = create<TTSState>()((set, get) => {
 
   async function rvReadFrom(ctx: PlayCtx, index: number) {
     if (ctx.token !== playbackToken) return
+    if (sleepIsExpired()) {
+      expireSleepTimer()
+      return
+    }
     if (index >= ctx.paragraphs.length) {
       finishPlayback(ctx)
       return
@@ -629,7 +696,8 @@ export const useTTSStore = create<TTSState>()((set, get) => {
     const url = URL.createObjectURL(blob)
     const audio = new Audio(url)
     audio.volume = ctx.settings.volume
-    audio.playbackRate = ctx.settings.speed
+    audio.preservesPitch = true
+    audio.playbackRate = Math.min(Math.max(ctx.settings.speed, MIN_SPEED), MAX_SPEED)
     audio.onended = () => {
       if (ctx.token !== playbackToken) return
       consecutiveFailures = 0
@@ -692,19 +760,22 @@ export const useTTSStore = create<TTSState>()((set, get) => {
     sleepTimer: null,
     sleepTimerRemaining: 0,
     sleepTimerInterval: null,
+    sleepTimerMinutes: 0,
+    sleepTimerFiredCount: 0,
     rvAudioStatuses: {},
     rvAudioTotal: 0,
 
     play: (text, chapterId, settings) => {
-      // Auto-next after the sleep timer already fired: do not start again.
-      if (settings.keepSleepTimer && settings.sleepTimerMinutes > 0 && !get().sleepTimer) return
+      // The deadline passed but the (throttled) timeout has not fired yet.
+      if (sleepIsExpired()) {
+        if (settings.autoContinue) {
+          expireSleepTimer() // auto-next must not outlive the sleep timer
+          return
+        }
+        clearSleepTimer() // user pressed Play on purpose: start fresh
+      }
 
       teardown()
-
-      if (!(settings.keepSleepTimer && get().sleepTimer)) {
-        clearSleepTimer()
-        if (settings.sleepTimerMinutes > 0) startSleepTimer(settings.sleepTimerMinutes)
-      }
 
       const paragraphs = splitToParagraphs(text)
       if (paragraphs.length === 0) {
@@ -757,7 +828,6 @@ export const useTTSStore = create<TTSState>()((set, get) => {
 
     stop: () => {
       teardown()
-      clearSleepTimer()
       set({
         status: 'idle',
         error: null,
@@ -780,7 +850,7 @@ export const useTTSStore = create<TTSState>()((set, get) => {
       cancelSpeech()
       releaseAudio()
 
-      const ctx = beginPlayback(chapterId, paragraphs, { ...settings, sleepTimerMinutes: 0 })
+      const ctx = beginPlayback(chapterId, paragraphs, settings)
       set({ currentParagraphIndex: target, status: 'playing', mode: settings.mode, error: null })
       runEngine(ctx, target, false)
     },
@@ -792,5 +862,30 @@ export const useTTSStore = create<TTSState>()((set, get) => {
     },
 
     clearError: () => set({ error: null }),
+
+    setPlaybackSpeed: (speed) => {
+      const next = Math.min(Math.max(speed, MIN_SPEED), MAX_SPEED)
+      const ctx = current
+      if (!ctx || ctx.settings.speed === next) return
+      ctx.settings = { ...ctx.settings, speed: next } // used by every following paragraph/chunk
+
+      const { mode, audio } = get()
+      if (mode === 'responsivevoice') {
+        if (audio) {
+          audio.preservesPitch = true
+          audio.playbackRate = next // takes effect immediately, mid-sentence
+        }
+      } else {
+        // debounce: dragging a slider must not re-speak the sentence on every tick
+        if (speedTimer) clearTimeout(speedTimer)
+        speedTimer = setTimeout(() => ssRestart?.(), 300)
+      }
+    },
+
+    setSleepTimer: (minutes) => {
+      const m = Math.min(Math.max(Math.floor(minutes) || 0, 0), 600)
+      if (m <= 0) clearSleepTimer()
+      else startSleepTimer(m)
+    },
   }
 })

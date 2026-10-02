@@ -9,9 +9,9 @@ export function RootLayout() {
       <main className="flex-1">
         <Outlet />
       </main>
-      <footer className="border-t border-[var(--border)] py-6 mt-12">
+      <footer className="border-t border-[var(--border)] py-6 mt-1">
         <div className="page-container text-center text-sm text-[var(--text-subtle)] font-ui">
-          © {new Date().getFullYear()} Đọc Truyện
+          © 2026 SaoBook
         </div>
       </footer>
     </div>

@@ -3,15 +3,17 @@ import {
   useCallback, useEffect, useMemo, useRef, useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useChapter, useChapterList, useMarkChapterRead } from '@/lib/queries'
 import { useTTSStore, type RvAudioStatus } from '@/store/tts.store'
 import { useSettingsStore } from '@/store/settings.store'
 import { useAuthStore } from '@/store/auth.store'
 import { useScrollHide } from '@/hooks/useScrollHide'
+import { useSettingsSync } from '@/hooks/useSettingsSync'
 import { Spinner } from '@/components/ui'
 import { cn } from '@/lib/utils'
-import { ChevronLeft, ChevronRight, List, Play, Pause, Square } from 'lucide-react'
+import { ChevronLeft, ChevronRight, List, Play, Pause, Square, SlidersHorizontal, Timer, X } from 'lucide-react'
 import axios from 'axios'
 import '@/styles/reader.css'
 
@@ -23,6 +25,162 @@ function countStatus(statuses: Record<number, RvAudioStatus>, wanted: RvAudioSta
   return n
 }
 
+const SLEEP_PRESETS = [15, 30, 60, 90]
+
+function formatRemaining(totalSeconds: number) {
+  const h = Math.floor(totalSeconds / 3600)
+  const m = Math.floor((totalSeconds % 3600) / 60)
+  const s = totalSeconds % 60
+  const mm = String(m).padStart(2, '0')
+  const ss = String(s).padStart(2, '0')
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`
+}
+
+/**
+ * Quick controls shown on top of the reader: the width change is visible live and the
+ * sleep timer starts counting immediately. It is its own component so the per-second
+ * countdown only re-renders this panel, not the whole page.
+ */
+function ReaderQuickSettings({ onClose }: { onClose: () => void }) {
+  const readerMaxWidth = useSettingsStore((s) => s.readerMaxWidth)
+  const updateUI       = useSettingsStore((s) => s.updateUI)
+  const ttsSpeed       = useSettingsStore((s) => s.ttsSpeed)
+  const ttsMode        = useSettingsStore((s) => s.ttsMode)
+  const updateTTS      = useSettingsStore((s) => s.updateTTS)
+  const sleepMinutes   = useTTSStore((s) => s.sleepTimerMinutes)
+  const sleepRemaining = useTTSStore((s) => s.sleepTimerRemaining)
+  const setSleepTimer  = useTTSStore((s) => s.setSleepTimer)
+  const [custom, setCustom] = useState('')
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const applyCustom = () => {
+    const m = parseInt(custom, 10)
+    if (!Number.isFinite(m) || m <= 0) return
+    setSleepTimer(Math.min(m, 600))
+    setCustom('')
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-label="Tuỳ chỉnh nhanh"
+      className="card fixed right-3 top-16 z-50 max-h-[80vh] w-[min(92vw,20rem)] space-y-4 overflow-y-auto p-4 shadow-xl"
+    >
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-[var(--text)]">Tuỳ chỉnh nhanh</h2>
+        <button onClick={onClose} className="btn-ghost rounded-lg p-1" aria-label="Đóng">
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Reading width (live) */}
+      <div>
+        <label className="label">
+          Chiều rộng đọc: <span className="font-mono">{readerMaxWidth}px</span>
+        </label>
+        <input
+          type="range"
+          min={500}
+          max={1600}
+          step={20}
+          value={readerMaxWidth}
+          onChange={(e) => updateUI({ readerMaxWidth: parseInt(e.target.value, 10) })}
+          className="w-full accent-[var(--accent)]"
+        />
+        <div className="flex justify-between text-xs text-[var(--text-subtle)]">
+          <span>Hẹp</span>
+          <span>Rộng</span>
+        </div>
+      </div>
+
+      {/* Playback speed (applied live while listening) */}
+      <div>
+        <label className="label">
+          Tốc độ đọc: <span className="font-mono">{ttsSpeed.toFixed(2)}x</span>
+        </label>
+        <input
+          type="range"
+          min={0.5}
+          max={4}
+          step={0.05}
+          value={Math.min(ttsSpeed, 4)}
+          onChange={(e) => updateTTS({ ttsSpeed: parseFloat(e.target.value) })}
+          className="w-full accent-[var(--accent)]"
+        />
+        <div className="flex justify-between text-xs text-[var(--text-subtle)]">
+          <span>0.5x</span>
+          <span>4.0x</span>
+        </div>
+        <p className="mt-1 text-xs text-[var(--text-subtle)]">
+          {ttsMode === 'responsivevoice'
+            ? 'Đổi ngay khi đang phát, không tải lại audio.'
+            : 'Giọng trình duyệt: câu đang đọc sẽ đọc lại từ đầu câu với tốc độ mới.'}
+        </p>
+      </div>
+
+      {/* Sleep timer */}
+      <div>
+        <label className="label flex items-center gap-1.5">
+          <Timer size={13} /> Hẹn giờ tắt
+          <span className="ml-auto font-mono text-xs text-[var(--text-muted)]">
+            {sleepMinutes > 0 ? `Còn ${formatRemaining(sleepRemaining)}` : 'Đang tắt'}
+          </span>
+        </label>
+
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            onClick={() => setSleepTimer(0)}
+            className={cn(
+              'rounded border px-2 py-1 text-xs transition-all',
+              sleepMinutes === 0
+                ? 'border-accent bg-[var(--accent-bg)] text-accent'
+                : 'border-[var(--border)] text-[var(--text-subtle)] hover:border-[var(--text-muted)]',
+            )}
+          >
+            Tắt
+          </button>
+          {SLEEP_PRESETS.map((m) => (
+            <button
+              key={m}
+              onClick={() => setSleepTimer(m)}
+              className={cn(
+                'rounded border px-2 py-1 text-xs transition-all',
+                sleepMinutes === m
+                  ? 'border-accent bg-[var(--accent-bg)] text-accent'
+                  : 'border-[var(--border)] text-[var(--text-subtle)] hover:border-[var(--text-muted)]',
+              )}
+            >
+              {m}&#39;
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            type="text"
+            inputMode="numeric"
+            value={custom}
+            onChange={(e) => setCustom(e.target.value.replace(/\D/g, '').slice(0, 3))}
+            onKeyDown={(e) => { if (e.key === 'Enter') applyCustom() }}
+            placeholder="Số phút khác"
+            className="input w-32 text-sm"
+          />
+          <button onClick={applyCustom} disabled={!custom} className="reader-nav-btn">Đặt giờ</button>
+        </div>
+
+        <p className="mt-2 text-xs text-[var(--text-subtle)]">
+          Đếm ngược ngay và dừng đọc khi hết giờ. Hẹn giờ vẫn chạy khi bạn bấm dừng hoặc đổi chương.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export function ChapterReadPage() {
   const { nameId, chapterId: chapterIdParam } = useParams<{ nameId: string; chapterId: string }>()
   const chapterId = chapterIdParam ? Number(chapterIdParam) : NaN
@@ -32,7 +190,7 @@ export function ChapterReadPage() {
   const {
     fontSize, lineHeight, fontFamily, bgColor, textColor, readerMaxWidth,
     ttsLanguage, ttsVoice, ttsVoiceName, ttsSpeed, ttsPitch, ttsVolume,
-    ttsMode, autoNextChapter, sleepTimerMinutes,
+    ttsMode, autoNextChapter,
   } = useSettingsStore()
 
   const { mutate: markReadMutate } = useMarkChapterRead()
@@ -42,10 +200,12 @@ export function ChapterReadPage() {
   const currentParagraphIndex = useTTSStore((s) => s.currentParagraphIndex)
   const ttsChapterId          = useTTSStore((s) => s.chapterId)
   const ttsErrorRaw           = useTTSStore((s) => s.error)
+  const sleepFiredCount       = useTTSStore((s) => s.sleepTimerFiredCount)
   const rvAudioTotal          = useTTSStore((s) => s.rvAudioTotal)
   const rvAudioLoaded         = useTTSStore((s) => countStatus(s.rvAudioStatuses, 'loaded'))
   const rvAudioErrors         = useTTSStore((s) => countStatus(s.rvAudioStatuses, 'error'))
   const { play, pause, resume, stop, retry, clearError } = useTTSStore.getState() // stable actions
+  useSettingsSync() // auto-saves voice / API key / speed to the server (the backend needs them)
 
   const { data: chapter, isLoading } = useChapter(chapterId)
   const { data: chapters }           = useChapterList(nameId!)
@@ -56,6 +216,7 @@ export function ChapterReadPage() {
   const [failedId,   setFailedId]   = useState<number | null>(null)
   const [reloadKey,  setReloadKey]  = useState(0)
   const [showTOC,    setShowTOC]    = useState(false)
+  const [showQuick,  setShowQuick]  = useState(false)
 
   const paragraphs     = loaded?.id === chapterId ? loaded.paragraphs : EMPTY_PARAGRAPHS
   const contentError   = failedId === chapterId
@@ -116,7 +277,6 @@ export function ChapterReadPage() {
     speed:     ttsSpeed,
     pitch:     ttsPitch,
     volume:    ttsVolume,
-    sleepTimerMinutes,
     onEnd: autoNextChapter
       ? () => {
           const { nextChapterId, nameId: story } = latest.current
@@ -125,7 +285,7 @@ export function ChapterReadPage() {
           navigate(`/stories/${story}/chapters/${nextChapterId}`)
         }
       : undefined,
-  }), [ttsMode, ttsLanguage, ttsVoice, ttsVoiceName, ttsSpeed, ttsPitch, ttsVolume, sleepTimerMinutes, autoNextChapter, navigate])
+  }), [ttsMode, ttsLanguage, ttsVoice, ttsVoiceName, ttsSpeed, ttsPitch, ttsVolume, autoNextChapter, navigate])
 
   const handlePlayPause = () => {
     pendingAutoPlay.current = null
@@ -144,7 +304,7 @@ export function ChapterReadPage() {
 
   const handleBlockClick = (index: number) => {
     if (!ttsActive) return
-    useTTSStore.getState().jumpToParagraph(index, { ...ttsSettings(), sleepTimerMinutes: 0 })
+    useTTSStore.getState().jumpToParagraph(index, ttsSettings())
   }
 
   /** Props that make the title / a paragraph a clickable, keyboard-accessible "jump" target. */
@@ -207,11 +367,21 @@ export function ChapterReadPage() {
     stop()
   }, [chapterId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Speed changed (reader panel or settings page): apply it to the current playback immediately
+  useEffect(() => {
+    useTTSStore.getState().setPlaybackSpeed(ttsSpeed)
+  }, [ttsSpeed])
+
+  // The sleep timer fired: cancel a pending auto-next so it can't start playback again
+  useEffect(() => {
+    pendingAutoPlay.current = null
+  }, [sleepFiredCount])
+
   // Auto-continue: start once the NEW chapter's content has actually loaded
   useEffect(() => {
     if (pendingAutoPlay.current !== chapterId || paragraphs.length === 0) return
     pendingAutoPlay.current = null
-    play(ttsText, chapterId, { ...ttsSettings(), keepSleepTimer: true })
+    play(ttsText, chapterId, { ...ttsSettings(), autoContinue: true })
   }, [paragraphs]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mark the chapter read once its final paragraph (last block) is visible
@@ -311,6 +481,16 @@ export function ChapterReadPage() {
             </button>
 
             <button
+              onClick={() => setShowQuick((v) => !v)}
+              className={cn('btn-ghost p-1.5 rounded-lg', showQuick && 'text-[var(--accent)]')}
+              aria-label="Tuỳ chỉnh nhanh"
+              aria-expanded={showQuick}
+              title="Chiều rộng, tốc độ & hẹn giờ tắt"
+            >
+              <SlidersHorizontal size={16} />
+            </button>
+
+            <button
               onClick={() => setShowTOC((v) => !v)}
               className="btn-ghost p-1.5 rounded-lg"
               aria-label="Mục lục"
@@ -337,6 +517,8 @@ export function ChapterReadPage() {
           </div>
         )}
       </div>
+
+      {showQuick && <ReaderQuickSettings onClose={() => setShowQuick(false)} />}
 
       {/* ── TTS error banner ────────────────────────────────────────────── */}
       {ttsError && (
@@ -450,10 +632,18 @@ export function ChapterReadPage() {
         </div>
       </div>
 
-      {ttsActive && (
-        <button onClick={handleStop} className="reader-tts-fab reader-tts-fab--stop">
-          <Square size={16} /> Dừng
-        </button>
+      {/* Floating pause / resume. Rendered into <body> and styled with utilities only, so it
+          shows on every screen size and no ancestor (transform / overflow / reader.css rule)
+          can hide or clip it. Click any paragraph to jump; the stop button is in the top bar. */}
+      {ttsActive && createPortal(
+        <button
+          onClick={handlePlayPause}
+          className="fixed right-4 z-50 flex items-center gap-2 rounded-full bg-accent px-4 py-3 text-sm font-medium text-white shadow-lg transition-opacity hover:opacity-90 active:scale-95"
+          style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+        >
+          {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+        </button>,
+        document.body,
       )}
 
     </div>

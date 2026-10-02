@@ -83,42 +83,94 @@ export interface TTSSettings {
   ttsVolume: number
   autoNextChapter: boolean
   sleepTimerMinutes: number
+  /** Browser (SpeechSynthesis) voice. Local to this device, never sent to the server. */
   ttsVoiceName: string
+  /** ResponsiveVoice voice. Synced with the server (the backend generates the audio). */
+  rvVoiceName: string
   selectedRvApiKeyId: string | null
 }
+
+// ── Server <-> client mapping ─────────────────────────────────────────────────
 
 export const DEFAULT_RV_VOICE_NAMES: Record<TTSLanguage, Record<TTSVoice, string>> = {
   vi: { male: 'Vietnamese Male', female: 'Vietnamese Female' },
   en: { male: 'US English Male', female: 'US English Female' },
 }
 
-export function userSettingsToTTS(userSettings: UserSettings): Partial<TTSSettings> {
-  const language = userSettings.rvSettings.language.startsWith('en') ? 'en' : 'vi'
-  const voice = userSettings.rvSettings.gender === 'male' || userSettings.rvSettings.gender === 'm'
-    ? 'male'
-    : 'female'
+const RV_VOICE_NAMES = ['Vietnamese Female', 'Vietnamese Male', 'US English Female', 'US English Male']
 
+/**
+ * The server stores voices as VIETNAMESE_FEMALE but some endpoints return the raw value
+ * and others the display name. Always normalise to the display name; null if unknown.
+ */
+export function canonicalRvVoiceName(name?: string | null): string | null {
+  if (!name) return null
+  const key = name.trim()
+  if (RV_VOICE_NAMES.includes(key)) return key
+  const upper = key.toUpperCase().replace(/\s+/g, '_')
+  return RV_VOICE_NAMES.find((n) => n.toUpperCase().replace(/\s+/g, '_') === upper) ?? null
+}
+
+type SyncSource = {
+  ttsSpeed?: number
+  autoNextChapter?: boolean
+  selectedRvApiKeyId?: string | null
+  rvSettings?: { voiceName?: string; language?: string; gender?: string; pitch?: number } | null
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100
+
+/**
+ * Canonical form of the server-synced settings. Used on BOTH sides (local store and server
+ * response), so 'vi' vs 'vi-VN', 'm' vs 'male', VIETNAMESE_MALE vs 'Vietnamese Male' never
+ * make the two look different.
+ */
+export function toSyncSnapshot(source: SyncSource) {
+  const rv = source.rvSettings
+  const language: TTSLanguage = rv?.language?.toLowerCase().startsWith('en') ? 'en' : 'vi'
+  const gender: TTSVoice = rv?.gender === 'male' || rv?.gender === 'm' ? 'male' : 'female'
   return {
-    ttsLanguage: language,
-    ttsVoice: voice,
-    ttsVoiceName: userSettings.rvSettings.voiceName,
-    ttsPitch: userSettings.rvSettings.pitch,
-    ttsSpeed: userSettings.ttsSpeed,
-    autoNextChapter: userSettings.autoNextChapter,
-    selectedRvApiKeyId: userSettings.selectedRvApiKeyId,
+    ttsSpeed: round2(source.ttsSpeed ?? 1),
+    autoNextChapter: !!source.autoNextChapter,
+    selectedRvApiKeyId: source.selectedRvApiKeyId ?? null,
+    voiceName: canonicalRvVoiceName(rv?.voiceName) ?? DEFAULT_RV_VOICE_NAMES[language][gender],
+    language,
+    gender,
+    pitch: round2(rv?.pitch ?? 1),
   }
 }
 
+/** Server -> store. Only fields the server actually sent are applied (never overwrite with undefined). */
+export function userSettingsToTTS(userSettings: UserSettings): Partial<TTSSettings> {
+  const patch: Partial<TTSSettings> = {}
+  const rv = userSettings.rvSettings
+
+  if (rv) {
+    if (rv.language) patch.ttsLanguage = rv.language.toLowerCase().startsWith('en') ? 'en' : 'vi'
+    if (rv.gender) patch.ttsVoice = rv.gender === 'male' || rv.gender === 'm' ? 'male' : 'female'
+    const voice = canonicalRvVoiceName(rv.voiceName)
+    if (voice) patch.rvVoiceName = voice
+    if (typeof rv.pitch === 'number') patch.ttsPitch = rv.pitch
+  }
+  if (typeof userSettings.ttsSpeed === 'number') patch.ttsSpeed = userSettings.ttsSpeed
+  if (typeof userSettings.autoNextChapter === 'boolean') patch.autoNextChapter = userSettings.autoNextChapter
+  if (userSettings.selectedRvApiKeyId !== undefined) patch.selectedRvApiKeyId = userSettings.selectedRvApiKeyId
+
+  return patch
+}
+
+/** Store -> server request body. */
 export function ttsToUserSettings(settings: Pick<
   TTSSettings,
-  'ttsLanguage' | 'ttsVoice' | 'ttsVoiceName' | 'ttsPitch' | 'ttsSpeed' | 'autoNextChapter' | 'selectedRvApiKeyId'
+  'ttsLanguage' | 'ttsVoice' | 'rvVoiceName' | 'ttsPitch' | 'ttsSpeed' | 'autoNextChapter' | 'selectedRvApiKeyId'
 >): Pick<UserSettings, 'ttsSpeed' | 'autoNextChapter' | 'selectedRvApiKeyId' | 'rvSettings'> {
   return {
     ttsSpeed: settings.ttsSpeed,
     autoNextChapter: settings.autoNextChapter,
     selectedRvApiKeyId: settings.selectedRvApiKeyId,
     rvSettings: {
-      voiceName: settings.ttsVoiceName || DEFAULT_RV_VOICE_NAMES[settings.ttsLanguage][settings.ttsVoice],
+      voiceName:
+        canonicalRvVoiceName(settings.rvVoiceName) ?? DEFAULT_RV_VOICE_NAMES[settings.ttsLanguage][settings.ttsVoice],
       language: settings.ttsLanguage === 'en' ? 'en-US' : 'vi-VN',
       gender: settings.ttsVoice,
       pitch: settings.ttsPitch,
@@ -126,14 +178,12 @@ export function ttsToUserSettings(settings: Pick<
   }
 }
 
+/** Kept for compatibility; now the canonical snapshot. */
 export function userSettingsToPersistedSnapshot(userSettings: UserSettings) {
-  return {
-    ttsSpeed: userSettings.ttsSpeed,
-    autoNextChapter: userSettings.autoNextChapter,
-    selectedRvApiKeyId: userSettings.selectedRvApiKeyId,
-    rvSettings: userSettings.rvSettings,
-  }
+  return toSyncSnapshot(userSettings)
 }
+
+// ── Store ─────────────────────────────────────────────────────────────────────
 
 interface SettingsState extends UISettings, TTSSettings {
   /** Saved colors for each theme - to restore when toggling */
@@ -168,6 +218,7 @@ const defaults: UISettings & TTSSettings = {
   autoNextChapter: false,
   sleepTimerMinutes: 0,
   ttsVoiceName: '',
+  rvVoiceName: '',
   selectedRvApiKeyId: null,
 }
 
@@ -242,6 +293,20 @@ export const useSettingsStore = create<SettingsState>()(persist((set, get) => ({
       },
     }), {
       name: 'saobook-settings',
+      version: 2,
+      // v1 stored ONE voice name for both engines, and the server's RV names ended up in the
+      // browser-voice field. Move a recognised RV name to its own field, clear the rest.
+      migrate: (persisted, version) => {
+        const state = (persisted ?? {}) as Record<string, unknown>
+        if (version < 2) {
+          const rv = canonicalRvVoiceName(state.ttsVoiceName as string | undefined)
+          if (rv) {
+            state.rvVoiceName = rv
+            state.ttsVoiceName = ''
+          }
+        }
+        return state as never
+      },
       partialize: (state) => ({
         theme: state.theme,
         bgColor: state.bgColor,
@@ -259,6 +324,7 @@ export const useSettingsStore = create<SettingsState>()(persist((set, get) => ({
         autoNextChapter: state.autoNextChapter,
         sleepTimerMinutes: state.sleepTimerMinutes,
         ttsVoiceName: state.ttsVoiceName,
+        rvVoiceName: state.rvVoiceName,
         selectedRvApiKeyId: state.selectedRvApiKeyId,
         savedColors: state.savedColors,
       }),
